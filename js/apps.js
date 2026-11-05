@@ -1,10 +1,8 @@
 window.GoldenGateApps = (function () {
   const QUICK_SITES = [
-    { title: 'blockaway', url: 'https://www.blockaway.net/' },
-    { title: 'croxyproxy', url: 'https://www.croxyproxy.rocks/' },
-    { title: '4everproxy', url: 'https://www.4everproxy.com/' },
     { title: 'wikipedia', url: 'https://en.wikipedia.org/wiki/Main_Page' },
     { title: 'hackernews', url: 'https://news.ycombinator.com' },
+    { title: 'duckduckgo', url: 'https://duckduckgo.com' },
     { title: 'games', url: 'aero://games' }
   ];
 
@@ -951,18 +949,34 @@ window.GoldenGateApps = (function () {
       pane.dataset.mountedUrl = tab.url;
       if (tab.url === 'aero://home') {
         pane.innerHTML = `
-          <div style="padding:36px 28px;max-width:680px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:22px;">
+          <div style="padding:48px 24px;max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:20px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <h2 class="kinetic-title" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">aero</h2>
-              <span style="font-size:11.5px;color:#64748b;">Local Proxy Active</span>
+              <h2 class="kinetic-title" style="font-size:26px;font-weight:700;letter-spacing:-0.02em;">aero</h2>
+              <span style="font-size:11.5px;color:#94a3b8;">Web Proxy & Browser</span>
             </div>
 
-            <form class="aero-home-search-form" style="display:flex;gap:8px;">
-              <input type="text" class="clean-input aero-home-search-in" placeholder="Search the web or enter any website URL..." style="height:38px;font-size:13px;" />
-              <button type="submit" class="btn-solid" style="padding:0 18px;">Go</button>
+            <form class="aero-home-search-form" style="display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,0.18);">
+                <input type="text" class="aero-home-search-in" placeholder="Enter an URL or a search query to access" style="flex:1;height:44px;font-size:15px;color:#1e293b;background:#ffffff;border:none;padding:0 16px;outline:none;font-family:inherit;" />
+                <button type="submit" style="background:#5e50b5;color:#ffffff;border:none;padding:0 24px;font-size:14.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;">&#10140; Go!</button>
+              </div>
+
+              <div style="font-size:12.5px;color:#94a3b8;display:flex;flex-wrap:wrap;align-items:center;gap:6px;line-height:1.6;">
+                <span style="color:#64748b;font-weight:600;">Quick links:</span>
+                <a href="#" class="proxy-quick-tag" data-url="https://duckduckgo.com" style="color:#818cf8;text-decoration:underline;">DuckDuckGo</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.google.com" style="color:#818cf8;text-decoration:underline;">Google</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.youtube.com" style="color:#818cf8;text-decoration:underline;">YouTube</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.facebook.com" style="color:#818cf8;text-decoration:underline;">Facebook</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://en.wikipedia.org" style="color:#818cf8;text-decoration:underline;">Wikipedia</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.reddit.com" style="color:#818cf8;text-decoration:underline;">Reddit</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.instagram.com" style="color:#818cf8;text-decoration:underline;">Instagram</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.tiktok.com" style="color:#818cf8;text-decoration:underline;">TikTok</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://twitter.com" style="color:#818cf8;text-decoration:underline;">Twitter</a>,
+                <a href="#" class="proxy-quick-tag" data-url="https://www.twitch.tv" style="color:#818cf8;text-decoration:underline;">Twitch</a>
+              </div>
             </form>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-top:14px;">
               ${QUICK_SITES.map(
                 (s) => `
                 <div style="padding:14px;border-radius:12px;background:#131824;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
@@ -977,13 +991,34 @@ window.GoldenGateApps = (function () {
             </div>
           </div>
         `;
+
+        function handleSearchOrUrl(raw) {
+          const trimmed = raw.trim();
+          if (!trimmed) return;
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (!isLocal) {
+            const nextUrl = normalizeUrl(trimmed);
+            openInAboutBlank(nextUrl, trimmed);
+          } else {
+            navigateTab(trimmed);
+          }
+        }
+
         pane.querySelector('.aero-home-search-form')?.addEventListener('submit', (e) => {
           e.preventDefault();
-          const q = pane.querySelector('.aero-home-search-in').value.trim();
-          if (q) navigateTab(q);
+          const q = pane.querySelector('.aero-home-search-in').value;
+          handleSearchOrUrl(q);
         });
+
+        pane.querySelectorAll('.proxy-quick-tag').forEach((a) => {
+          a.onclick = (e) => {
+            e.preventDefault();
+            handleSearchOrUrl(a.dataset.url);
+          };
+        });
+
         pane.querySelectorAll('.card-open').forEach((b) => {
-          b.onclick = () => navigateTab(b.dataset.url, b.dataset.title);
+          b.onclick = () => handleSearchOrUrl(b.dataset.url);
         });
         pane.querySelectorAll('.card-pin').forEach((b) => {
           b.onclick = () => window.GoldenGateOS.addWebsiteShortcut({ title: b.dataset.title, url: b.dataset.url });
