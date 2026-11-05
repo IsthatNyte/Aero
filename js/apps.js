@@ -915,6 +915,7 @@ window.GoldenGateApps = (function () {
           <div class="helium-nav-controls">
             <button class="helium-icon-btn" id="hel-home-btn" title="Home">${uiIcon('home', 14)}</button>
             <button class="helium-icon-btn" id="hel-reload-btn" title="Reload Tab">${uiIcon('rotate', 14)}</button>
+            <button class="helium-icon-btn" id="hel-ext-btn" title="Open in New Tab">${uiIcon('external', 14)}</button>
             <button class="helium-icon-btn" id="hel-games-btn" title="Games">${window.GoldenGateIcons.getIconSVG('games', 14)}</button>
             <button class="helium-icon-btn" id="hel-pin-btn" title="Pin Tab">${uiIcon('pin', 14)}</button>
           </div>
@@ -991,7 +992,13 @@ window.GoldenGateApps = (function () {
       } else {
         const proxiedSrc = toProxyUrl(tab.url);
         pane.innerHTML = `
-          <iframe class="aero-iframe" src="${proxiedSrc}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+          <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;">
+            <div style="padding:4px 12px;background:#0c101c;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);flex-shrink:0;">
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">${tab.url}</span>
+              <a href="${tab.url}" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px;">Open tab &#8599;</a>
+            </div>
+            <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
+          </div>
         `;
       }
     }
@@ -1095,6 +1102,12 @@ window.GoldenGateApps = (function () {
       const activeTab = getActiveTab();
       const pane = tabPaneEls.get(activeTab.id);
       if (pane) mountPaneContent(pane, activeTab);
+    };
+    bodyEl.querySelector('#hel-ext-btn').onclick = () => {
+      const activeTab = getActiveTab();
+      if (activeTab.url && !activeTab.url.startsWith('aero://')) {
+        window.open(activeTab.url, '_blank', 'noopener');
+      }
     };
     bodyEl.querySelector('#hel-games-btn').onclick = () => navigateTab('aero://games', 'games');
     bodyEl.querySelector('#hel-pin-btn').onclick = () => {

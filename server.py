@@ -24,6 +24,13 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 AUDIO_URL_CACHE = {}
 AUDIO_CACHE_LOCK = threading.Lock()
 
+def create_ssl_context():
+    ctx = ssl._create_unverified_context() if hasattr(ssl, '_create_unverified_context') else ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
 
 ALLOWED_ORIGIN_PATTERNS = [
     re.compile(r'^http://(127\.0\.0\.1|localhost)(:\d+)?$'),
@@ -147,7 +154,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             or ''
         ).strip()
 
-        ctx = ssl.create_default_context()
+        ctx = create_ssl_context()
 
         reply_text = ''
         provider_used = 'none'
@@ -347,7 +354,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        ctx = ssl.create_default_context()
+        ctx = create_ssl_context()
 
         req_headers = dict(resolved.get('headers') or {})
         client_range = self.headers.get('Range')
@@ -395,7 +402,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response({'ok': False, 'error': 'Missing url parameter'}, 400)
             return
 
-        ctx = ssl.create_default_context()
+        ctx = create_ssl_context()
 
         # 1. Spotify playlist, album, or track
         spotify_match = re.search(r'spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)', url)
@@ -525,6 +532,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'Missing url parameter')
             return
 
+        if 'uddg=' in target_url:
+            uddg_match = re.search(r'uddg=([^&]+)', target_url)
+            if uddg_match:
+                target_url = urllib.parse.unquote(uddg_match.group(1))
+
         if not target_url.startswith(('http://', 'https://')):
             target_url = 'https://' + target_url
 
@@ -535,7 +547,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'Access denied: target address is private or restricted.')
             return
 
-        ctx = ssl.create_default_context()
+        ctx = create_ssl_context()
 
         req = urllib.request.Request(
             target_url,
@@ -568,26 +580,63 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     base_href = f"{parsed_final.scheme}://{parsed_final.netloc}/"
                     base_tag = f'<base href="{base_href}">'
 
+                    nav_script = (
+                        '<script>'
+                        '(function(){'
+                        'function wrap(u){'
+                        'var m=u.match(/uddg=([^&]+)/);'
+                        'if(m)u=decodeURIComponent(m[1]);'
+                        'return "/proxy?url="+encodeURIComponent(u);'
+                        '}'
+                        'document.addEventListener("click",function(e){'
+                        'var a=e.target&&e.target.closest("a");'
+                        'if(!a||!a.href||a.href.startsWith("javascript:")||a.href.startsWith("#"))return;'
+                        'e.preventDefault();'
+                        'window.location.href=wrap(a.href);'
+                        '},true);'
+                        'document.addEventListener("submit",function(e){'
+                        'var f=e.target;'
+                        'if(!f)return;'
+                        'e.preventDefault();'
+                        'var act=f.action||window.location.href;'
+                        'var fd=new FormData(f);'
+                        'var p=new URLSearchParams();'
+                        'for(var pair of fd.entries()){p.append(pair[0],pair[1]);}'
+                        'var full=act+(act.indexOf("?")>=0?"&":"?")+p.toString();'
+                        'window.location.href=wrap(full);'
+                        '},true);'
+                        '})();'
+                        '</script>'
+                    )
+
                     # Rewrite root-relative asset URLs so they load from the target origin
                     text = re.sub(r'(href|src)=(["\'])/(?!/)', r'\1=\2' + base_href, text)
 
+                    inject = base_tag + nav_script
                     if re.search(r'<head[^>]*>', text, flags=re.IGNORECASE):
                         text = re.sub(
                             r'(<head[^>]*>)',
-                            r'\1' + base_tag,
+                            r'\1' + inject,
                             text,
                             count=1,
                             flags=re.IGNORECASE,
                         )
                     else:
-                        text = base_tag + text
+                        text = inject + text
 
                     raw_body = text.encode('utf-8')
                     content_type = 'text/html; charset=utf-8'
 
                 self.send_response(status)
+                skip_headers = STRIP_HEADERS.union({
+                    'content-type',
+                    'content-length',
+                    'transfer-encoding',
+                    'connection',
+                    'content-encoding'
+                })
                 for k, v in resp.headers.items():
-                    if k.lower() not in STRIP_HEADERS and k.lower() != 'content-type':
+                    if k.lower() not in skip_headers:
                         self.send_header(k, v)
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(len(raw_body)))
