@@ -9,6 +9,7 @@ window.GoldenGateApps = (function () {
   const APP_DEFINITIONS = [
     { id: 'aero', title: 'aero', icon: 'aero', width: 920, height: 560, pinned: true },
     { id: 'music', title: 'music', icon: 'music', width: 940, height: 580, pinned: true },
+    { id: 'account', title: 'account', icon: 'account', width: 440, height: 520, pinned: true },
     { id: 'games', title: 'games', icon: 'games', width: 880, height: 540, pinned: true },
     { id: 'code', title: 'code', icon: 'code', width: 820, height: 520, pinned: true },
     { id: 'monitor', title: 'monitor', icon: 'monitor', width: 620, height: 440, pinned: true },
@@ -2016,7 +2017,206 @@ console.log("Fibonacci(10):", result.join(", "));
     });
   }
 
+  
+  // 13. account / cloud sync
+  function renderAccount(bodyEl) {
+    function updateUI() {
+      const user = window.AeroAuth ? window.AeroAuth.getUser() : null;
+      const lastSync = window.AeroAuth ? window.AeroAuth.getLastSyncTime() : null;
+
+      let playlistsCount = 0;
+      let likedCount = 0;
+      try {
+        playlistsCount = JSON.parse(localStorage.getItem('webos_limusic_user_playlists_v2') || '[]').length;
+        likedCount = JSON.parse(localStorage.getItem('webos_limusic_liked_v2') || '[]').length;
+      } catch (e) {}
+
+      if (user) {
+        const email = user.email || 'User';
+        const initial = email.charAt(0).toUpperCase();
+        const syncText = lastSync ? ('Synced at ' + lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : 'Cloud connected';
+
+        bodyEl.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;padding:24px 20px;height:100%;box-sizing:border-box;gap:16px;text-align:center;overflow-y:auto;">
+            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg, #0a84ff, #5e5ce6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;box-shadow:0 8px 24px rgba(10,132,255,0.35);">
+              ${initial}
+            </div>
+            <div>
+              <div style="font-size:18px;font-weight:600;color:#fff;">${email}</div>
+              <div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#30d158;background:rgba(48,209,88,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(48,209,88,0.25);">
+                <span style="width:7px;height:7px;border-radius:50%;background:#30d158;"></span>
+                <span>${syncText}</span>
+              </div>
+            </div>
+
+            <div style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left;box-sizing:border-box;">
+              <div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Playlists</div>
+                <div style="font-size:20px;font-weight:700;color:#fff;margin-top:2px;">${playlistsCount}</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Liked Songs</div>
+                <div style="font-size:20px;font-weight:700;color:#fff;margin-top:2px;">${likedCount}</div>
+              </div>
+            </div>
+
+            <div style="width:100%;display:flex;flex-direction:column;gap:10px;margin-top:auto;">
+              <button id="acc-sync-btn" class="btn-flat" style="width:100%;padding:11px;background:#0a84ff;color:#fff;font-weight:600;border-radius:10px;">
+                Sync to Cloud Now
+              </button>
+              <button id="acc-load-btn" class="btn-flat" style="width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#fff;border-radius:10px;">
+                Load from Cloud
+              </button>
+              <button id="acc-signout-btn" class="btn-flat" style="width:100%;padding:10px;background:rgba(255,69,58,0.15);color:#ff453a;border:1px solid rgba(255,69,58,0.3);border-radius:10px;">
+                Sign Out
+              </button>
+            </div>
+            <div id="acc-msg" style="font-size:12px;min-height:16px;"></div>
+          </div>
+        `;
+
+        const syncBtn = bodyEl.querySelector('#acc-sync-btn');
+        const loadBtn = bodyEl.querySelector('#acc-load-btn');
+        const signoutBtn = bodyEl.querySelector('#acc-signout-btn');
+        const msg = bodyEl.querySelector('#acc-msg');
+
+        if (syncBtn) {
+          syncBtn.onclick = async () => {
+            syncBtn.disabled = true;
+            syncBtn.textContent = 'Syncing...';
+            await window.AeroAuth.saveToCloud();
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Sync to Cloud Now';
+            msg.style.color = '#30d158';
+            msg.textContent = 'Sync complete';
+            updateUI();
+          };
+        }
+
+        if (loadBtn) {
+          loadBtn.onclick = async () => {
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+            await window.AeroAuth.loadFromCloud();
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load from Cloud';
+            msg.style.color = '#30d158';
+            msg.textContent = 'Loaded latest profile from cloud';
+            updateUI();
+          };
+        }
+
+        if (signoutBtn) {
+          signoutBtn.onclick = async () => {
+            await window.AeroAuth.signOut();
+            updateUI();
+          };
+        }
+      } else {
+        bodyEl.innerHTML = `
+          <div style="display:flex;flex-direction:column;padding:24px 20px;height:100%;box-sizing:border-box;gap:14px;overflow-y:auto;">
+            <div style="text-align:center;">
+              <div style="width:56px;height:56px;border-radius:50%;background:rgba(10,132,255,0.15);border:1px solid rgba(10,132,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div style="font-size:18px;font-weight:700;color:#fff;">Aero Account</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;">
+                Sign in to save your playlists, wallpapers, themes, and music tastes.
+              </div>
+            </div>
+
+            <form id="acc-auth-form" style="display:flex;flex-direction:column;gap:12px;margin-top:6px;" onsubmit="return false;">
+              <div>
+                <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Email</label>
+                <input id="acc-email-input" type="email" placeholder="you@example.com" required
+                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Password</label>
+                <input id="acc-password-input" type="password" placeholder="Password (min 6 characters)" required
+                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+                <button id="acc-signin-btn" class="btn-flat" type="button"
+                  style="width:100%;padding:11px;background:#0a84ff;color:#fff;font-weight:600;border-radius:8px;">
+                  Sign In
+                </button>
+                <button id="acc-signup-btn" class="btn-flat" type="button"
+                  style="width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#fff;border-radius:8px;">
+                  Create Account
+                </button>
+              </div>
+            </form>
+            <div id="acc-msg" style="font-size:12px;text-align:center;min-height:16px;"></div>
+          </div>
+        `;
+
+        const emailInp = bodyEl.querySelector('#acc-email-input');
+        const passInp = bodyEl.querySelector('#acc-password-input');
+        const signinBtn = bodyEl.querySelector('#acc-signin-btn');
+        const signupBtn = bodyEl.querySelector('#acc-signup-btn');
+        const msg = bodyEl.querySelector('#acc-msg');
+
+        signinBtn.onclick = async () => {
+          const email = emailInp.value.trim();
+          const pass = passInp.value;
+          if (!email || !pass) {
+            msg.style.color = '#ff453a';
+            msg.textContent = 'Enter email and password';
+            return;
+          }
+          signinBtn.disabled = true;
+          signinBtn.textContent = 'Signing in...';
+          msg.textContent = '';
+          try {
+            await window.AeroAuth.signIn(email, pass);
+            updateUI();
+          } catch (err) {
+            msg.style.color = '#ff453a';
+            msg.textContent = err.message || 'Login failed';
+            signinBtn.disabled = false;
+            signinBtn.textContent = 'Sign In';
+          }
+        };
+
+        signupBtn.onclick = async () => {
+          const email = emailInp.value.trim();
+          const pass = passInp.value;
+          if (!email || !pass) {
+            msg.style.color = '#ff453a';
+            msg.textContent = 'Enter email and password';
+            return;
+          }
+          signupBtn.disabled = true;
+          signupBtn.textContent = 'Creating account...';
+          msg.textContent = '';
+          try {
+            await window.AeroAuth.signUp(email, pass);
+            signupBtn.disabled = false;
+            signupBtn.textContent = 'Create Account';
+            msg.style.color = '#30d158';
+            msg.textContent = 'Account created. Check your email if confirmation is required.';
+            updateUI();
+          } catch (err) {
+            msg.style.color = '#ff453a';
+            msg.textContent = err.message || 'Signup failed';
+            signupBtn.disabled = false;
+            signupBtn.textContent = 'Create Account';
+          }
+        };
+      }
+    }
+
+    updateUI();
+    window.addEventListener('aero:auth-change', updateUI);
+    window.addEventListener('aero:sync-complete', updateUI);
+  }
+
   function mountAppContent(appId, bodyEl, options) {
+    if (appId === "account") return renderAccount(bodyEl);
     switch (appId) {
       case 'music':
         return renderMusic(bodyEl, options);

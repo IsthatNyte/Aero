@@ -848,6 +848,17 @@ window.GoldenGateDroplet = (function () {
       return await executeRegistryAction('music.skipArtist', {});
     }
 
+    if (lower === 'sign in' || lower === 'login' || lower === 'log in' || lower === 'account' || lower === 'my account') {
+      return await executeRegistryAction('system.openApp', { appId: 'account' });
+    }
+
+    if (lower === 'sync' || lower === 'sync now' || lower === 'cloud sync' || lower === 'sync to cloud') {
+      if (window.AeroAuth) {
+        await window.AeroAuth.saveToCloud();
+        return 'Synced settings and music tastes to your cloud account.';
+      }
+    }
+
     // Notes: "make a list called Groceries" / "create a note called Ideas"
     const makeListMatch = raw.match(/^(?:make|create|start)\s+(?:a\s+)?(?:list|note)\s+(?:called|named)\s+(.+)$/i);
     if (makeListMatch) {
