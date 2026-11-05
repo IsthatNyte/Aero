@@ -2002,8 +2002,36 @@ console.log("Fibonacci(10):", result.join(", "));
           disp.textContent = '0';
         } else if (k === '=') {
           try {
-            const safe = expr.replace(/[^0-9+\-*/().]/g, '');
-            expr = String(Number(Function(`"use strict";return (${safe || 0})`)().toFixed(6)));
+            function safeEval(s) {
+              const toks = s.match(/\d+(\.\d+)?|[+\-*/()]/g);
+              if (!toks) return 0;
+              let p = 0;
+              function exp() {
+                let v = term();
+                while (p < toks.length && (toks[p] === '+' || toks[p] === '-')) {
+                  const op = toks[p++];
+                  const n = term();
+                  v = op === '+' ? v + n : v - n;
+                }
+                return v;
+              }
+              function term() {
+                let v = fact();
+                while (p < toks.length && (toks[p] === '*' || toks[p] === '/')) {
+                  const op = toks[p++];
+                  const n = fact();
+                  v = op === '*' ? v * n : (n !== 0 ? v / n : 0);
+                }
+                return v;
+              }
+              function fact() {
+                if (toks[p] === '(') { p++; const v = exp(); if (toks[p] === ')') p++; return v; }
+                if (toks[p] === '-') { p++; return -fact(); }
+                return parseFloat(toks[p++]) || 0;
+              }
+              return exp();
+            }
+            expr = String(Number(safeEval(expr).toFixed(6)));
             disp.textContent = expr;
           } catch (e) {
             disp.textContent = 'Error';

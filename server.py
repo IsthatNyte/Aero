@@ -1,3 +1,5 @@
+import ipaddress
+import socket
 import http.server
 import socketserver
 import urllib.parse
@@ -22,6 +24,38 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 AUDIO_URL_CACHE = {}
 AUDIO_CACHE_LOCK = threading.Lock()
 
+
+ALLOWED_ORIGIN_PATTERNS = [
+    re.compile(r'^http://(127\.0\.0\.1|localhost)(:\d+)?$'),
+    re.compile(r'^https://isthatnyte\.github\.io$'),
+]
+
+def is_allowed_origin(origin):
+    if not origin:
+        return False
+    return any(p.match(origin) for p in ALLOWED_ORIGIN_PATTERNS)
+
+def is_safe_target_url(url):
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        hostname = (parsed.hostname or '').strip().lower()
+        if not hostname:
+            return False
+        if hostname in ('localhost', '127.0.0.1', '::1', '0.0.0.0'):
+            return False
+        if hostname.endswith('.local') or hostname.endswith('.internal'):
+            return False
+        addrs = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, sockaddr in addrs:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        return True
+    except Exception:
+        return False
+
 STRIP_HEADERS = {
     'x-frame-options',
     'content-security-policy',
@@ -42,10 +76,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=BASE_DIR, **kwargs)
 
     def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
+        client_origin = self.headers.get('Origin', '').strip()
+        if is_allowed_origin(client_origin):
+            self.send_header('Access-Control-Allow-Origin', client_origin)
+            self.send_header('Vary', 'Origin')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Range')
         self.send_header('Cache-Control', 'no-cache')
+        self.send_header('X-Content-Type-Options', 'nosniff')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -110,8 +148,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         ).strip()
 
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         reply_text = ''
         provider_used = 'none'
@@ -312,8 +348,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         req_headers = dict(resolved.get('headers') or {})
         client_range = self.headers.get('Range')
@@ -362,8 +396,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         # 1. Spotify playlist, album, or track
         spotify_match = re.search(r'spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)', url)
@@ -496,9 +528,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not target_url.startswith(('http://', 'https://')):
             target_url = 'https://' + target_url
 
+        if not is_safe_target_url(target_url):
+            self.send_response(403)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(b'Access denied: target address is private or restricted.')
+            return
+
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         req = urllib.request.Request(
             target_url,
