@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="liquidgl-on tint-bw">
+
+  <!-- Optical Lens Displacement Filter for LiquidGL -->
+  <svg class="svg-defs" aria-hidden="true">
+    <defs>
+      <filter id="liquidgl-lens" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+        <feImage id="liquidgl-normal-map" result="lensMap" preserveAspectRatio="none" />
+        <feDisplacementMap id="liquidgl-disp" in="SourceGraphic" in2="lensMap" scale="32" xChannelSelector="R" yChannelSelector="G" result="refracted" />
+        <feGaussianBlur id="liquidgl-blur" in="refracted" stdDeviation="1.4" result="blurred" />
+        <feMerge>
+          <feMergeNode in="blurred" />
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Hidden YouTube IFrame Audio Host (200x200 required by YouTube IFrame API to prevent viewport throttling) -->
+  <div id="yt-audio-host" style="position:fixed;bottom:0;left:0;width:200px;height:200px;opacity:0.001;pointer-events:none;z-index:-1;overflow:hidden;">
+    <div id="yt-player-mount"></div>
+  </div>
+
+  <!-- Wallpaper Layer -->
+  <div id="wallpaper-layer" class="wallpaper-layer">
+    <canvas id="wallpaper-canvas"></canvas>
+    <img id="wallpaper-img" class="wallpaper-img hidden" alt="" />
+  </div>
+
+  <!-- Hidden File Input for Local Wallpaper Selection -->
+  <input type="file" id="local-wallpaper-input" accept="image/*" class="hidden" />
+
+  <!-- Desktop Area -->
+  <main id="desktop" class="desktop-area" tabindex="0">
+    <!-- Freeform Draggable Desktop Icons & iOS Groups Layer -->
+    <div id="desktop-icons-grid" class="desktop-icons-canvas"></div>
+
+    <!-- iOS-Style Group Folder Popover -->
+    <div id="group-popover-backdrop" class="group-popover-backdrop hidden">
+      <div id="group-popover" class="liquidgl-card group-popover">
+        <input type="text" id="group-title-input" class="group-title-input" value="Group" />
+        <div id="group-items-grid" class="group-items-grid"></div>
+      </div>
+    </div>
+
+    <!-- Translucent Edge Snap Preview Box -->
+    <div id="snap-preview-box" class="snap-preview-box hidden"></div>
+
+    <!-- Windows Layer -->
+    <div id="windows-container" class="windows-container"></div>
+
+    <!-- Droplet Pill Assistant Bar & Detached Circle Button (Toggled with Alt key) -->
+    <div id="droplet-orb-window" class="droplet-pill-dock hidden" aria-label="Droplet Assistant">
+      <!-- Light Proactivity Banner -->
+      <div id="droplet-proactive-chip" class="liquidgl-card droplet-proactive-chip hidden">
+        <span id="droplet-proactive-text">Suggestion</span>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn-solid" id="droplet-proactive-accept" style="padding:3px 9px;font-size:11px;">Yes</button>
+          <button type="button" class="btn-flat" id="droplet-proactive-dismiss" style="padding:3px 8px;font-size:11px;">Dismiss</button>
+        </div>
+      </div>
+
+      <!-- Destructive Action Permission Confirmation Bar -->
+      <div id="droplet-confirm-bar" class="liquidgl-card droplet-confirm-bar hidden">
+        <span id="droplet-confirm-text">Confirm action?</span>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn-solid" id="droplet-confirm-yes" style="padding:3px 10px;font-size:11px;background:#ef4444;border-color:#ef4444;">Confirm</button>
+          <button type="button" class="btn-flat" id="droplet-confirm-no" style="padding:3px 9px;font-size:11px;">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Translucent Refracting Reply Bubble -->
+      <div id="droplet-reply-bubble" class="liquidgl-card droplet-reply-bubble">
+        <div id="droplet-reply-text" class="droplet-reply-text">Ask me any question, run multi-step commands, or click the right circle for Memory, Skills, Rules, and Audit Log.</div>
+      </div>
+
+      <!-- Translucent Refracting Control Drawer (History, TTS, Skills, Memory, Rules, Audit) -->
+      <div id="droplet-drawer-panel" class="liquidgl-card droplet-drawer-panel hidden">
+        <div class="droplet-drawer-tabs">
+          <button type="button" class="droplet-tab-btn active" data-dtab="chat">Chat &amp; TTS</button>
+          <button type="button" class="droplet-tab-btn" data-dtab="skills">Skills</button>
+          <button type="button" class="droplet-tab-btn" data-dtab="memory">Memory &amp; Taste</button>
+          <button type="button" class="droplet-tab-btn" data-dtab="rules">Rules &amp; Digest</button>
+          <button type="button" class="droplet-tab-btn" data-dtab="audit">Permissions &amp; Audit</button>
+        </div>
+        <div id="droplet-drawer-body" class="droplet-drawer-body"></div>
+      </div>
+
+      <!-- Horizontal Pill Bar + Right Detached Circle (Matches Reference Image) -->
+      <div class="droplet-bar-row" id="droplet-drag-handle">
+        <div class="liquidgl-card droplet-main-pill">
+          <div class="droplet-orb-wrap" id="droplet-orb-trigger" title="Droplet Core">
+            <canvas id="droplet-webgl-canvas" width="96" height="96"></canvas>
+          </div>
+          <form id="droplet-input-form" class="droplet-pill-form">
+            <input type="text" id="droplet-prompt-input" placeholder="Ask Droplet..." autocomplete="off" />
+          </form>
+          <div class="droplet-pill-actions">
+            <button type="button" class="droplet-pill-icon-btn" id="droplet-tts-mute-btn" title="Toggle Voice Output (TTS)">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+            </button>
+            <button type="button" class="droplet-pill-icon-btn" id="droplet-wave-btn" title="Voice &amp; TTS Settings">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="10" x2="4" y2="14"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="10" x2="20" y2="14"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="liquidgl-card droplet-side-circle-btn" id="droplet-drawer-btn" title="Open Droplet Control Center">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Spicy Lyrics Compact Time-Synced Popup (Triggered from Taskbar Music Widget) -->
+  <section id="lyrics-flyout" class="liquidgl-card spicy-lyrics-flyout hidden" aria-label="Synced Lyrics">
+    <div id="lyrics-ambient-bg" class="spicy-lyrics-ambient"></div>
+    <div id="lyrics-lines-container" class="spicy-lyrics-scroll">
+      <div class="spicy-lyric-line active">Play a song to view time-synced lyrics</div>
+    </div>
+  </section>
+
+  <!-- System Notifications & Alarms Action Center Flyout -->
+  <section id="action-center-flyout" class="liquidgl-card action-center-flyout hidden" aria-label="Notifications">
+    <div class="ac-header">
+      <span class="kinetic-title" style="font-size:13.5px;font-weight:600;">Notifications</span>
+      <button class="btn-flat" id="ac-clear-all-btn" style="padding:3px 8px;font-size:11px;">Clear</button>
+    </div>
+    <form id="ac-alarm-form" class="ac-alarm-box" style="flex-direction:row;">
+      <input type="number" id="ac-alarm-seconds" class="clean-input" min="5" max="3600" placeholder="Sec" style="width:76px;padding:4px 8px;font-size:11.5px;" required />
+      <input type="text" id="ac-alarm-label" class="clean-input" placeholder="Alarm label" style="flex:1;padding:4px 8px;font-size:11.5px;" />
+      <button type="submit" class="btn-solid" style="padding:4px 10px;font-size:11px;">Set</button>
+    </form>
+    <div id="ac-notif-list" class="ac-notif-list"></div>
+  </section>
+
+  <!-- Search Flyout -->
+  <section id="search-flyout" class="liquidgl-card search-flyout hidden" aria-label="Search">
+    <div id="search-results-list" class="search-results-list"></div>
+  </section>
+
+  <!-- Taskbar Time Widget Flyout: Day Overview, Location, Weather & Next 6 Hours Forecast -->
+  <section id="day-flyout" class="liquidgl-card day-flyout hidden" aria-label="Day and Weather">
+    <div class="day-flyout-header">
+      <div>
+        <div id="day-flyout-date" class="day-flyout-date kinetic-title">Wednesday, Nov 4</div>
+        <div id="day-flyout-loc" class="day-flyout-loc">Detecting location...</div>
+      </div>
+      <button class="btn-flat" id="day-refresh-btn" title="Refresh Weather" style="display:flex;align-items:center;justify-content:center;padding:6px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+
+    <div class="day-current-weather">
+      <div class="day-temp-main kinetic-title" id="day-temp-main">--°F</div>
+      <div class="day-cond-meta">
+        <div id="day-cond-text" class="day-cond-text" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">Loading...</div>
+        <div id="day-extra-stats" class="day-extra-stats">Humidity --% / Wind -- mph</div>
+      </div>
+    </div>
+
+    <div class="day-section-title">Next 6 Hours</div>
+    <div id="day-hourly-grid" class="day-hourly-grid"></div>
+  </section>
+
+  <!-- Authentic macOS Right-Click Dropdown Menu -->
+  <div id="custom-context-menu" class="macos-context-menu hidden" role="menu">
+    <button class="mac-menu-item" data-ctx="open-aero">
+      <span>Open aero</span>
+    </button>
+    <button class="mac-menu-item" data-ctx="open-music">
+      <span>Open music</span>
+    </button>
+    <button class="mac-menu-item" data-ctx="open-games">
+      <span>Open games</span>
+    </button>
+    <button class="mac-menu-item" data-ctx="new-website-shortcut">
+      <span>New Shortcut...</span>
+    </button>
+    <button class="mac-menu-item hidden" id="ctx-open-target" data-ctx="open-target">
+      <span>Open</span>
+    </button>
+    <button class="mac-menu-item hidden" id="ctx-delete-shortcut" data-ctx="delete-shortcut">
+      <span>Remove</span>
+    </button>
+
+    <div class="mac-menu-sep"></div>
+
+    <button class="mac-menu-item" data-ctx="open-wallpaper-local">
+      <span>Local Wallpaper...</span>
+    </button>
+    <button class="mac-menu-item" data-ctx="open-wallpaper-repo">
+      <span>Repo Wallpapers...</span>
+    </button>
+    <button class="mac-menu-item" data-ctx="arrange-icons">
+      <span>Clean Up Grid</span>
+    </button>
+
+    <div class="mac-menu-sep"></div>
+
+    <!-- Dedicated Tint & LiquidGL Section inside macOS Right-Click Menu -->
+    <div class="mac-menu-section">
+      <div class="mac-section-row">
+        <span class="mac-section-label">Tint</span>
+        <span class="mac-section-val" id="ctx-tint-name">B&amp;W</span>
+      </div>
+      <div class="mac-swatch-row">
+        <button class="mac-swatch active" data-mode="bw" data-color="#ffffff" data-name="B&W" style="background:linear-gradient(135deg,#fff 50%,#111 50%);" title="Black and White"></button>
+        <button class="mac-swatch" data-mode="tinted" data-color="#3b82f6" data-name="Blue" style="background:#3b82f6;" title="Blue"></button>
+        <button class="mac-swatch" data-mode="tinted" data-color="#10b981" data-name="Green" style="background:#10b981;" title="Green"></button>
+        <button class="mac-swatch" data-mode="tinted" data-color="#f59e0b" data-name="Amber" style="background:#f59e0b;" title="Amber"></button>
+        <button class="mac-swatch" data-mode="tinted" data-color="#ef4444" data-name="Red" style="background:#ef4444;" title="Red"></button>
+        <button class="mac-swatch" data-mode="tinted" data-color="#a855f7" data-name="Violet" style="background:#a855f7;" title="Violet"></button>
+        <label class="mac-color-pick" title="Custom Tint">
+          <input type="color" id="ctx-custom-color" value="#ffffff" />
+          <span>+</span>
+        </label>
+      </div>
+
+      <div class="mac-section-row" style="margin-top:6px;">
+        <span class="mac-section-label">LiquidGL</span>
+        <input type="checkbox" id="ctx-liquidgl-toggle" checked />
+      </div>
+      <div class="mac-slider-row">
+        <span>Refract</span>
+        <input type="range" id="ctx-lgl-refraction" min="0" max="60" value="32" />
+      </div>
+      <div class="mac-slider-row">
+        <span>Blur</span>
+        <input type="range" id="ctx-lgl-frost" min="0" max="36" value="14" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Creating a Website Shortcut -->
+  <div id="shortcut-modal-backdrop" class="modal-backdrop hidden">
+    <div class="liquidgl-card shortcut-modal">
+      <div class="modal-header">
+        <h3 class="kinetic-title">New Shortcut</h3>
+        <button class="modal-close-btn" id="shortcut-modal-close" style="display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="shortcut-form">
+        <div class="form-group">
+          <label for="shortcut-title-input">Name</label>
+          <input type="text" id="shortcut-title-input" placeholder="github" required />
+        </div>
+        <div class="form-group">
+          <label for="shortcut-url-input">URL</label>
+          <input type="text" id="shortcut-url-input" placeholder="https://github.com" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-flat" id="shortcut-cancel-btn">Cancel</button>
+          <button type="submit" class="btn-solid">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Start Menu Overlay -->
+  <section id="start-menu" class="liquidgl-card start-menu hidden" aria-label="Start">
+    <div id="start-apps-grid" class="start-apps-grid"></div>
+  </section>
+
+  <!-- LiquidGL Taskbar with Bottom-Left Audio Visualizer & Mini-Player -->
+  <footer id="taskbar" class="liquidgl-card windows-taskbar">
+    <!-- Far Left: Audio Visualizer, Cover Art, Track Meta, Transport Controls & Time-Left Scroll Bar -->
+    <div class="taskbar-left-player" id="taskbar-left-player">
+      <div class="tb-cover-wrap" id="tb-open-music" title="Time-Synced Lyrics">
+        <img id="tb-cover-img" class="tb-cover-img hidden" src="" alt="" />
+        <canvas id="tb-visualizer-canvas" class="tb-visualizer-canvas" width="68" height="28"></canvas>
+      </div>
+      <div class="tb-track-info">
+        <div class="tb-track-top">
+          <div class="tb-track-texts" id="tb-track-texts" title="Time-Synced Lyrics">
+            <span id="tb-track-title" class="tb-track-title">No track playing</span>
+            <span id="tb-track-artist" class="tb-track-artist">Open music</span>
+          </div>
+          <div class="tb-mini-controls">
+            <button class="tb-ctrl-btn" id="tb-play-btn" title="Play / Pause">
+              <svg id="tb-play-svg" viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            </button>
+            <button class="tb-ctrl-btn" id="tb-skip-btn" title="Skip">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button class="tb-ctrl-btn" id="tb-loop-btn" title="Loop">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="tb-progress-row">
+          <div class="tb-progress-track" id="tb-progress-track">
+            <div class="tb-progress-fill" id="tb-progress-fill"></div>
+          </div>
+          <span class="tb-time-left" id="tb-time-left">-0:00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Aero Logo Start Icon + Stacked LiquidGL Search Widget + App Icons -->
+    <div class="taskbar-center">
+      <button id="start-btn" class="taskbar-start-btn" title="Start">
+        <div id="start-button-svg"></div>
+      </button>
+
+      <div class="taskbar-search-stack" id="taskbar-search-box">
+        <div class="liquidgl-card taskbar-search-pill">
+          <svg class="search-pill-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
+          </svg>
+          <input
+            type="text"
+            id="taskbar-search-input"
+            placeholder="Search"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <div id="taskbar-apps" class="taskbar-apps"></div>
+    </div>
+
+    <!-- Far Right: Master Volume Slider + Clock / Weather + Action Center Notifications -->
+    <div class="taskbar-right-corner">
+      <div class="taskbar-vol-wrap" title="Master Volume">
+        <span id="taskbar-vol-icon" class="taskbar-vol-icon">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </span>
+        <input type="range" id="taskbar-master-volume" class="taskbar-vol-slider" min="0" max="100" value="80" />
+      </div>
+      <button id="taskbar-clock-btn" class="taskbar-clock-btn" title="Day Overview &amp; 6-Hour Weather Forecast">
+        <span id="taskbar-weather-mini" class="taskbar-weather-mini"></span>
+        <span id="taskbar-time" class="taskbar-time">12:00 PM</span>
+      </button>
+      <button id="taskbar-notif-btn" class="taskbar-notif-btn" title="Notifications">
+        <span id="taskbar-notif-svg">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </span>
+        <span id="taskbar-notif-badge" class="taskbar-notif-badge hidden">0</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/liquidgl.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/apps.js"></script>
+  <script src="js/droplet.js"></script>
+  <script src="js/os.js"></script>
+</body>
+</html>
