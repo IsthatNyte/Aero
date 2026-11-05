@@ -3,12 +3,36 @@
   const SUPABASE_URL = 'https://uymucsjjousqbfegujyr.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_TW_KglLKr3l2Re8b4gqZrg_W6Bvwc3e';
 
+  const DEFAULT_PROFILE = {
+    displayName: 'nyte',
+    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=Aero',
+    bannerBg: 'linear-gradient(180deg, #ffd1dc 0%, #fff0f5 45%, #fffdfd 100%)',
+    bio: 'yoo\ni play cs2 roblox and some other games'
+  };
+
   let client = null;
   let currentUser = null;
   let currentUsername = localStorage.getItem('webos_account_username') || '';
   let lastSyncTime = null;
   let isSyncing = false;
   let syncTimeout = null;
+
+  function getProfile() {
+    try {
+      const raw = localStorage.getItem('webos_profile_v2');
+      if (raw) return { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+    } catch (e) {}
+    return { ...DEFAULT_PROFILE };
+  }
+
+  function setProfile(updates) {
+    const current = getProfile();
+    const updated = { ...current, ...updates };
+    localStorage.setItem('webos_profile_v2', JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('aero:profile-changed', { detail: updated }));
+    scheduleAutoSync();
+    return updated;
+  }
 
   function init() {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
@@ -68,6 +92,12 @@
     return currentUsername || (currentUser && currentUser.user_metadata ? currentUser.user_metadata.username : '') || '';
   }
 
+  function setUsername(newUsername) {
+    currentUsername = (newUsername || '').trim();
+    localStorage.setItem('webos_account_username', currentUsername);
+    scheduleAutoSync();
+  }
+
   function getLastSyncTime() {
     return lastSyncTime;
   }
@@ -81,6 +111,10 @@
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       return { available: false, error: 'Only letters, numbers, and underscores allowed' };
     }
+    const current = getUsername();
+    if (current && current.toLowerCase() === username.toLowerCase()) {
+      return { available: true };
+    }
     const tables = ['profiles', 'user_profiles', 'User Profiles'];
     for (const tbl of tables) {
       try {
@@ -91,6 +125,7 @@
           .limit(1);
         if (!error) {
           if (data && data.length > 0) {
+            if (currentUser && data[0].id === currentUser.id) return { available: true };
             return { available: false, error: 'Username already taken' };
           }
           return { available: true };
@@ -121,6 +156,7 @@
     if (username) {
       currentUsername = username;
       localStorage.setItem('webos_account_username', username);
+      setProfile({ displayName: username });
     }
     if (currentUser) {
       await saveToCloud();
@@ -210,12 +246,14 @@
       let memories = [];
       try { memories = JSON.parse(dropletMemories); } catch (e) {}
 
+      const profile = getProfile();
       const activeUsername = currentUsername || (currentUser.user_metadata ? currentUser.user_metadata.username : '') || '';
 
       const payload = {
         id: currentUser.id,
         username: activeUsername,
         settings: {
+          profile: profile,
           lgl: lgl,
           desktop: JSON.parse(localStorage.getItem('webos_desktop_items_v2') || '[]'),
           notes: JSON.parse(localStorage.getItem('webos_notes_list_v2') || '[]')
@@ -232,7 +270,7 @@
       lastSyncTime = new Date();
       window.dispatchEvent(new CustomEvent('aero:sync-complete', { detail: { time: lastSyncTime } }));
       if (!isBackground && window.OS && window.OS.showNotification) {
-        window.OS.showNotification('Cloud Synced', 'Your playlists, settings, and music tastes were saved.');
+        window.OS.showNotification('Cloud Synced', 'Your profile, playlists, and settings were saved.');
       }
     } catch (err) {
       console.warn('Sync to cloud error:', err);
@@ -247,7 +285,6 @@
     try {
       const row = await fetchProfile(currentUser.id);
       if (!row) {
-        // No row yet on cloud, upload local state
         await saveToCloud(true);
         return;
       }
@@ -256,6 +293,11 @@
       if (row.username) {
         currentUsername = row.username;
         localStorage.setItem('webos_account_username', currentUsername);
+      }
+
+      // Restore Profile Customization (displayName, avatarUrl, bannerBg, bio)
+      if (row.settings && row.settings.profile) {
+        setProfile(row.settings.profile);
       }
 
       // Restore Playlists
@@ -300,6 +342,9 @@
     getClient,
     getUser,
     getUsername,
+    setUsername,
+    getProfile,
+    setProfile,
     checkUsernameAvailable,
     signUp,
     signIn,

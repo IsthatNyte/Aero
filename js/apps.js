@@ -2020,280 +2020,498 @@ console.log("Fibonacci(10):", result.join(", "));
   
   // 13. account / cloud sync
   function renderAccount(bodyEl) {
-    let activeMode = 'signin'; // 'signin' or 'signup'
+    let activeMode = 'view'; // 'view', 'edit', 'signin', 'signup'
     let usernameDebounce = null;
+
+    // Default aesthetic avatar matching user screenshot
+    const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
     function updateUI() {
       const user = window.AeroAuth ? window.AeroAuth.getUser() : null;
       const username = window.AeroAuth ? window.AeroAuth.getUsername() : '';
+      const profile = window.AeroAuth ? window.AeroAuth.getProfile() : {
+        displayName: 'nyte',
+        avatarUrl: DEFAULT_AVATAR,
+        bannerBg: 'linear-gradient(180deg, #ffd1dc 0%, #fff0f5 45%, #fffdfd 100%)',
+        bio: 'yoo\ni play cs2 roblox and some other games'
+      };
       const lastSync = window.AeroAuth ? window.AeroAuth.getLastSyncTime() : null;
 
-      let playlistsCount = 0;
-      let likedCount = 0;
-      try {
-        playlistsCount = JSON.parse(localStorage.getItem('webos_limusic_user_playlists_v2') || '[]').length;
-        likedCount = JSON.parse(localStorage.getItem('webos_limusic_liked_v2') || '[]').length;
-      } catch (e) {}
-
       if (user) {
-        const email = user.email || 'User';
-        const displayName = username ? `@${username}` : email;
-        const initial = (username || email).charAt(0).toUpperCase();
-        const syncText = lastSync ? ('Synced at ' + lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : 'Cloud connected';
+        if (activeMode === 'edit') {
+          renderEditView(profile, username, user.email);
+        } else {
+          renderCardView(profile, username, user.email, lastSync);
+        }
+      } else {
+        renderAuthView();
+      }
+    }
 
-        bodyEl.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;padding:24px 20px;height:100%;box-sizing:border-box;gap:16px;text-align:center;overflow-y:auto;">
-            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg, #0a84ff, #5e5ce6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;box-shadow:0 8px 24px rgba(10,132,255,0.35);">
-              ${initial}
-            </div>
-            <div>
-              <div style="font-size:20px;font-weight:700;color:#fff;">${displayName}</div>
-              ${username ? `<div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">${email}</div>` : ''}
-              <div style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#30d158;background:rgba(48,209,88,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(48,209,88,0.25);">
-                <span style="width:7px;height:7px;border-radius:50%;background:#30d158;"></span>
-                <span>${syncText}</span>
-              </div>
-            </div>
+    function renderCardView(profile, username, email, lastSync) {
+      const syncText = lastSync
+        ? ('Synced at ' + lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        : 'Cloud connected';
+      const bg = profile.bannerBg || 'linear-gradient(180deg, #ffd1dc 0%, #fff0f5 45%, #fffdfd 100%)';
+      const avatar = profile.avatarUrl || DEFAULT_AVATAR;
+      const dispName = profile.displayName || username || 'nyte';
+      const userHandle = username || 'nytee';
+      const bioText = profile.bio || 'yoo\ni play cs2 roblox and some other games';
 
-            <div style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left;box-sizing:border-box;">
-              <div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Playlists</div>
-                <div style="font-size:20px;font-weight:700;color:#fff;margin-top:2px;">${playlistsCount}</div>
-              </div>
-              <div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Liked Songs</div>
-                <div style="font-size:20px;font-weight:700;color:#fff;margin-top:2px;">${likedCount}</div>
-              </div>
-            </div>
+      bodyEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;height:100%;box-sizing:border-box;overflow-y:auto;background:${bg};background-size:cover;background-position:center;color:#1a1a1a;position:relative;padding:24px 20px;border-radius:16px;">
+          
+          <!-- Avatar + Pencil Vector Circle Button -->
+          <div style="position:relative;width:86px;height:86px;margin-bottom:6px;">
+            <img id="acc-pfp-img" src="${avatar}" alt="PFP"
+              style="width:86px;height:86px;border-radius:50%;object-fit:cover;border:3px solid #ffffff;box-shadow:0 6px 18px rgba(0,0,0,0.12);background:#fff;"
+              onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${userHandle}'" />
+            
+            <!-- Pencil Vector around a circle -->
+            <button id="acc-pencil-circle" title="Customize username, pfp, background & bio"
+              style="position:absolute;bottom:0;right:0;width:30px;height:30px;border-radius:50%;background:#ffffff;border:1.5px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.18);cursor:pointer;padding:0;outline:none;transition:transform 0.15s ease;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ff4081" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
+            </button>
+          </div>
 
-            <div style="width:100%;display:flex;flex-direction:column;gap:10px;margin-top:auto;">
-              <button id="acc-sync-btn" class="btn-flat" style="width:100%;padding:11px;background:#0a84ff;color:#fff;font-weight:600;border-radius:10px;">
-                Sync to Cloud Now
+          <!-- Stylized Display Name & Username (like reference image) -->
+          <div style="display:flex;flex-direction:column;align-items:flex-start;margin-top:2px;">
+            <div style="font-size:26px;font-weight:800;font-style:italic;color:#ff4081;text-shadow:0 0 18px rgba(255,64,129,0.3);letter-spacing:-0.5px;line-height:1.2;">
+              ${dispName}
+            </div>
+            <div style="font-size:13px;color:#666;font-weight:500;margin-top:3px;">
+              @${userHandle}
+            </div>
+          </div>
+
+          <!-- Bio Card (exact rounded grey box from image) -->
+          <div style="width:100%;box-sizing:border-box;background:rgba(180, 176, 172, 0.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:14px;padding:14px 16px;margin-top:16px;color:#1e1e1e;font-size:14px;font-weight:500;line-height:1.5;white-space:pre-wrap;box-shadow:inset 0 1px 2px rgba(255,255,255,0.4);">
+${bioText}
+          </div>
+
+          <!-- Cloud Sync Pill -->
+          <div style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:11px;color:#1b5e20;background:rgba(255,255,255,0.6);padding:4px 10px;border-radius:12px;border:1px solid rgba(0,0,0,0.06);align-self:flex-start;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#30d158;"></span>
+            <span>${syncText}</span>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div style="width:100%;display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:18px;">
+            <button id="acc-open-edit-btn" class="btn-flat"
+              style="width:100%;padding:10px;background:#ffffff;color:#ff4081;font-weight:700;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.08);border:1px solid rgba(255,64,129,0.2);display:flex;align-items:center;justify-content:center;gap:6px;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
+              Customize Profile
+            </button>
+            <div style="display:flex;gap:8px;">
+              <button id="acc-sync-btn" class="btn-flat"
+                style="flex:1;padding:9px;background:rgba(0,0,0,0.08);color:#222;font-size:12px;font-weight:600;border-radius:8px;">
+                Sync to Cloud
               </button>
-              <button id="acc-load-btn" class="btn-flat" style="width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#fff;border-radius:10px;">
-                Load from Cloud
-              </button>
-              <button id="acc-signout-btn" class="btn-flat" style="width:100%;padding:10px;background:rgba(255,69,58,0.15);color:#ff453a;border:1px solid rgba(255,69,58,0.3);border-radius:10px;">
+              <button id="acc-signout-btn" class="btn-flat"
+                style="padding:9px 14px;background:rgba(255,59,48,0.12);color:#ff3b30;font-size:12px;font-weight:600;border-radius:8px;border:1px solid rgba(255,59,48,0.2);">
                 Sign Out
               </button>
             </div>
-            <div id="acc-msg" style="font-size:12px;min-height:16px;"></div>
           </div>
-        `;
+        </div>
+      `;
 
-        const syncBtn = bodyEl.querySelector('#acc-sync-btn');
-        const loadBtn = bodyEl.querySelector('#acc-load-btn');
-        const signoutBtn = bodyEl.querySelector('#acc-signout-btn');
-        const msg = bodyEl.querySelector('#acc-msg');
+      bodyEl.querySelector('#acc-pencil-circle').onclick = () => {
+        activeMode = 'edit';
+        updateUI();
+      };
+      bodyEl.querySelector('#acc-open-edit-btn').onclick = () => {
+        activeMode = 'edit';
+        updateUI();
+      };
+      bodyEl.querySelector('#acc-sync-btn').onclick = async () => {
+        const btn = bodyEl.querySelector('#acc-sync-btn');
+        btn.textContent = 'Syncing...';
+        await window.AeroAuth.saveToCloud();
+        btn.textContent = 'Synced!';
+        setTimeout(() => updateUI(), 1000);
+      };
+      bodyEl.querySelector('#acc-signout-btn').onclick = async () => {
+        await window.AeroAuth.signOut();
+        activeMode = 'signin';
+        updateUI();
+      };
+    }
 
-        if (syncBtn) {
-          syncBtn.onclick = async () => {
-            syncBtn.disabled = true;
-            syncBtn.textContent = 'Syncing...';
-            await window.AeroAuth.saveToCloud();
-            syncBtn.disabled = false;
-            syncBtn.textContent = 'Sync to Cloud Now';
-            msg.style.color = '#30d158';
-            msg.textContent = 'Sync complete';
-            updateUI();
-          };
-        }
+    function renderEditView(profile, username, email) {
+      let currentPfp = profile.avatarUrl || DEFAULT_AVATAR;
+      let currentBg = profile.bannerBg || 'linear-gradient(180deg, #ffd1dc 0%, #fff0f5 45%, #fffdfd 100%)';
 
-        if (loadBtn) {
-          loadBtn.onclick = async () => {
-            loadBtn.disabled = true;
-            loadBtn.textContent = 'Loading...';
-            await window.AeroAuth.loadFromCloud();
-            loadBtn.disabled = false;
-            loadBtn.textContent = 'Load from Cloud';
-            msg.style.color = '#30d158';
-            msg.textContent = 'Loaded latest profile from cloud';
-            updateUI();
-          };
-        }
+      bodyEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;padding:20px;height:100%;box-sizing:border-box;gap:12px;overflow-y:auto;background:#18181b;color:#f4f4f5;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:18px;font-weight:700;color:#fff;">Customize Account</div>
+            <button id="acc-cancel-edit" class="btn-flat" style="padding:5px 10px;background:rgba(255,255,255,0.08);color:#ccc;border-radius:6px;font-size:12px;">
+              Cancel
+            </button>
+          </div>
 
-        if (signoutBtn) {
-          signoutBtn.onclick = async () => {
-            await window.AeroAuth.signOut();
-            updateUI();
-          };
-        }
-      } else {
-        const isSignUp = activeMode === 'signup';
-        bodyEl.innerHTML = `
-          <div style="display:flex;flex-direction:column;padding:24px 20px;height:100%;box-sizing:border-box;gap:14px;overflow-y:auto;">
-            <div style="text-align:center;">
-              <div style="width:52px;height:52px;border-radius:50%;background:rgba(10,132,255,0.15);border:1px solid rgba(10,132,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div style="font-size:18px;font-weight:700;color:#fff;">${isSignUp ? 'Create Aero Account' : 'Welcome to Aero'}</div>
-              <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;">
-                Save and sync your playlists, wallpaper, themes, and tastes.
-              </div>
-            </div>
-
-            <!-- Tab Switcher -->
-            <div style="display:flex;background:rgba(255,255,255,0.06);padding:3px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);">
-              <button id="tab-signin-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${!isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
-                Sign In
-              </button>
-              <button id="tab-signup-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
-                Create Account
-              </button>
-            </div>
-
-            <form id="acc-auth-form" style="display:flex;flex-direction:column;gap:11px;margin-top:4px;" onsubmit="return false;">
-              ${isSignUp ? `
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Username</label>
-                    <span id="acc-username-badge" style="font-size:11px;font-weight:500;"></span>
-                  </div>
-                  <input id="acc-username-input" type="text" placeholder="e.g. nyte" autocomplete="off" required
-                    style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
-                </div>
-              ` : ''}
-
-              <div>
-                <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Email</label>
-                <input id="acc-email-input" type="email" placeholder="you@example.com" required
-                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
-              </div>
-
-              <div>
-                <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Password</label>
-                <input id="acc-password-input" type="password" placeholder="Password (min 6 characters)" required
-                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
-              </div>
-
-              <div style="margin-top:6px;">
-                <button id="acc-submit-btn" class="btn-flat" type="button"
-                  style="width:100%;padding:11px;background:#0a84ff;color:#fff;font-weight:600;border-radius:8px;">
-                  ${isSignUp ? 'Claim Username & Create Account' : 'Sign In'}
+          <!-- Avatar Section -->
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Profile Picture (PFP)</label>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+              <img id="edit-pfp-preview" src="${currentPfp}" alt="PFP"
+                style="width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #ff4081;background:#fff;" />
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1;">
+                <input type="file" id="edit-pfp-file" accept="image/*" class="hidden" />
+                <button id="edit-pfp-upload-btn" class="btn-flat" type="button"
+                  style="padding:6px 12px;background:#0a84ff;color:#fff;border-radius:6px;font-size:12px;font-weight:600;">
+                  Upload Photo
                 </button>
+                <input id="edit-pfp-url" type="text" placeholder="Or paste image URL" value="${profile.avatarUrl ? profile.avatarUrl : ''}"
+                  style="box-sizing:border-box;padding:6px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:12px;" />
               </div>
-            </form>
-            <div id="acc-msg" style="font-size:12px;text-align:center;min-height:16px;"></div>
+            </div>
           </div>
-        `;
 
-        const tabSignIn = bodyEl.querySelector('#tab-signin-btn');
-        const tabSignUp = bodyEl.querySelector('#tab-signup-btn');
-        const emailInp = bodyEl.querySelector('#acc-email-input');
-        const passInp = bodyEl.querySelector('#acc-password-input');
-        const usernameInp = bodyEl.querySelector('#acc-username-input');
-        const usernameBadge = bodyEl.querySelector('#acc-username-badge');
-        const submitBtn = bodyEl.querySelector('#acc-submit-btn');
-        const msg = bodyEl.querySelector('#acc-msg');
+          <!-- Display Name -->
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Display Name</label>
+            <input id="edit-display-name" type="text" value="${profile.displayName || 'nyte'}" placeholder="Display name"
+              style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#ff4081;font-weight:700;font-size:14px;" />
+          </div>
 
-        let isUsernameAvailable = false;
+          <!-- Username with Real-time Scanner -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Username (@handle)</label>
+              <span id="edit-username-badge" style="font-size:11px;"></span>
+            </div>
+            <input id="edit-username" type="text" value="${username || ''}" placeholder="username"
+              style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:13px;" />
+          </div>
 
-        tabSignIn.onclick = () => {
-          activeMode = 'signin';
-          updateUI();
+          <!-- Background / Banner -->
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Background</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px;">
+              <button class="bg-preset-btn btn-flat" data-bg="linear-gradient(180deg, #ffd1dc 0%, #fff0f5 45%, #fffdfd 100%)"
+                style="height:32px;border-radius:6px;background:linear-gradient(180deg, #ffd1dc, #fff0f5);border:1px solid rgba(255,255,255,0.3);font-size:10px;font-weight:600;color:#222;">
+                Pink Pastel
+              </button>
+              <button class="bg-preset-btn btn-flat" data-bg="linear-gradient(180deg, #e0c3fc 0%, #8ec5fc 100%)"
+                style="height:32px;border-radius:6px;background:linear-gradient(180deg, #e0c3fc, #8ec5fc);border:1px solid rgba(255,255,255,0.3);font-size:10px;font-weight:600;color:#222;">
+                Lavender
+              </button>
+              <button class="bg-preset-btn btn-flat" data-bg="linear-gradient(180deg, #232526 0%, #414345 100%)"
+                style="height:32px;border-radius:6px;background:linear-gradient(180deg, #232526, #414345);border:1px solid rgba(255,255,255,0.3);font-size:10px;font-weight:600;color:#fff;">
+                Dark Glass
+              </button>
+            </div>
+            <input id="edit-custom-bg" type="text" placeholder="Or custom CSS color / gradient / image URL" value="${currentBg}"
+              style="width:100%;box-sizing:border-box;margin-top:6px;padding:7px 10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:12px;" />
+          </div>
+
+          <!-- Bio -->
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Bio</label>
+            <textarea id="edit-bio" rows="3" placeholder="Write your bio..."
+              style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px 10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:13px;resize:none;">${profile.bio || ''}</textarea>
+          </div>
+
+          <!-- Save Button -->
+          <div style="margin-top:auto;padding-top:10px;">
+            <button id="edit-save-btn" class="btn-flat"
+              style="width:100%;padding:11px;background:#30d158;color:#fff;font-weight:700;border-radius:8px;font-size:14px;">
+              Save & Sync Profile
+            </button>
+            <div id="edit-status-msg" style="font-size:12px;text-align:center;margin-top:6px;min-height:16px;"></div>
+          </div>
+        </div>
+      `;
+
+      const cancelBtn = bodyEl.querySelector('#acc-cancel-edit');
+      const pfpPreview = bodyEl.querySelector('#edit-pfp-preview');
+      const pfpFileInput = bodyEl.querySelector('#edit-pfp-file');
+      const pfpUploadBtn = bodyEl.querySelector('#edit-pfp-upload-btn');
+      const pfpUrlInput = bodyEl.querySelector('#edit-pfp-url');
+      const dispNameInput = bodyEl.querySelector('#edit-display-name');
+      const usernameInput = bodyEl.querySelector('#edit-username');
+      const usernameBadge = bodyEl.querySelector('#edit-username-badge');
+      const customBgInput = bodyEl.querySelector('#edit-custom-bg');
+      const bioInput = bodyEl.querySelector('#edit-bio');
+      const saveBtn = bodyEl.querySelector('#edit-save-btn');
+      const statusMsg = bodyEl.querySelector('#edit-status-msg');
+
+      cancelBtn.onclick = () => {
+        activeMode = 'view';
+        updateUI();
+      };
+
+      pfpUploadBtn.onclick = () => pfpFileInput.click();
+      pfpFileInput.onchange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          currentPfp = re.target.result;
+          pfpPreview.src = currentPfp;
+          pfpUrlInput.value = '';
         };
+        reader.readAsDataURL(file);
+      };
 
-        tabSignUp.onclick = () => {
-          activeMode = 'signup';
-          updateUI();
+      pfpUrlInput.oninput = () => {
+        const u = pfpUrlInput.value.trim();
+        if (u) {
+          currentPfp = u;
+          pfpPreview.src = currentPfp;
+        }
+      };
+
+      bodyEl.querySelectorAll('.bg-preset-btn').forEach((btn) => {
+        btn.onclick = () => {
+          currentBg = btn.dataset.bg;
+          customBgInput.value = currentBg;
         };
+      });
 
-        if (usernameInp && usernameBadge) {
-          usernameInp.oninput = () => {
-            clearTimeout(usernameDebounce);
-            const val = usernameInp.value.trim();
-            if (!val) {
-              usernameBadge.textContent = '';
-              isUsernameAvailable = false;
-              return;
-            }
-            if (val.length < 3) {
-              usernameBadge.style.color = '#ff9f0a';
-              usernameBadge.textContent = 'Min 3 chars';
-              isUsernameAvailable = false;
-              return;
-            }
-            usernameBadge.style.color = 'rgba(255,255,255,0.6)';
-            usernameBadge.textContent = 'Scanning...';
-            usernameDebounce = setTimeout(async () => {
-              const res = await window.AeroAuth.checkUsernameAvailable(val);
-              if (res.available) {
-                usernameBadge.style.color = '#30d158';
-                usernameBadge.textContent = '✓ Available';
-                isUsernameAvailable = true;
-              } else {
-                usernameBadge.style.color = '#ff453a';
-                usernameBadge.textContent = res.error || 'Taken';
-                isUsernameAvailable = false;
-              }
-            }, 300);
-          };
+      let isUsernameValid = true;
+      usernameInput.oninput = () => {
+        clearTimeout(usernameDebounce);
+        const val = usernameInput.value.trim();
+        if (!val || val === username) {
+          usernameBadge.textContent = '';
+          isUsernameValid = true;
+          return;
+        }
+        if (val.length < 3) {
+          usernameBadge.style.color = '#ff9f0a';
+          usernameBadge.textContent = 'Min 3 chars';
+          isUsernameValid = false;
+          return;
+        }
+        usernameBadge.style.color = 'rgba(255,255,255,0.6)';
+        usernameBadge.textContent = 'Scanning...';
+        usernameDebounce = setTimeout(async () => {
+          const res = await window.AeroAuth.checkUsernameAvailable(val);
+          if (res.available) {
+            usernameBadge.style.color = '#30d158';
+            usernameBadge.textContent = '✓ Available';
+            isUsernameValid = true;
+          } else {
+            usernameBadge.style.color = '#ff453a';
+            usernameBadge.textContent = res.error || 'Taken';
+            isUsernameValid = false;
+          }
+        }, 300);
+      };
+
+      saveBtn.onclick = async () => {
+        const newUsername = usernameInput.value.trim();
+        if (newUsername && newUsername !== username) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Checking username...';
+          const check = await window.AeroAuth.checkUsernameAvailable(newUsername);
+          if (!check.available) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save & Sync Profile';
+            statusMsg.style.color = '#ff453a';
+            statusMsg.textContent = check.error || 'Username is taken';
+            return;
+          }
+          window.AeroAuth.setUsername(newUsername);
         }
 
-        submitBtn.onclick = async () => {
-          const email = emailInp.value.trim();
-          const pass = passInp.value;
-          if (!email || !pass) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        const updatedProfile = {
+          displayName: dispNameInput.value.trim() || newUsername || 'nyte',
+          avatarUrl: currentPfp,
+          bannerBg: customBgInput.value.trim() || currentBg,
+          bio: bioInput.value
+        };
+
+        window.AeroAuth.setProfile(updatedProfile);
+        await window.AeroAuth.saveToCloud();
+
+        statusMsg.style.color = '#30d158';
+        statusMsg.textContent = 'Profile updated and synced!';
+        setTimeout(() => {
+          activeMode = 'view';
+          updateUI();
+        }, 500);
+      };
+    }
+
+    function renderAuthView() {
+      const isSignUp = activeMode === 'signup';
+      bodyEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;padding:24px 20px;height:100%;box-sizing:border-box;gap:14px;overflow-y:auto;background:#18181b;color:#fff;">
+          <div style="text-align:center;">
+            <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,64,129,0.15);border:1px solid rgba(255,64,129,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#ff4081" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div style="font-size:20px;font-weight:700;color:#fff;">${isSignUp ? 'Create Aero Account' : 'Welcome to Aero'}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;">
+              Customize your profile, pfp, bio, and sync music tastes.
+            </div>
+          </div>
+
+          <!-- Tab Switcher -->
+          <div style="display:flex;background:rgba(255,255,255,0.06);padding:3px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);">
+            <button id="tab-signin-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${!isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
+              Sign In
+            </button>
+            <button id="tab-signup-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
+              Create Account
+            </button>
+          </div>
+
+          <form id="acc-auth-form" style="display:flex;flex-direction:column;gap:11px;margin-top:4px;" onsubmit="return false;">
+            ${isSignUp ? `
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Username (@handle)</label>
+                  <span id="acc-username-badge" style="font-size:11px;font-weight:500;"></span>
+                </div>
+                <input id="acc-username-input" type="text" placeholder="e.g. nytee" autocomplete="off" required
+                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+              </div>
+            ` : ''}
+
+            <div>
+              <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Email</label>
+              <input id="acc-email-input" type="email" placeholder="you@example.com" required
+                style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+            </div>
+
+            <div>
+              <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Password</label>
+              <input id="acc-password-input" type="password" placeholder="Password (min 6 characters)" required
+                style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+            </div>
+
+            <div style="margin-top:6px;">
+              <button id="acc-submit-btn" class="btn-flat" type="button"
+                style="width:100%;padding:11px;background:#ff4081;color:#fff;font-weight:700;border-radius:8px;">
+                ${isSignUp ? 'Claim Username & Create Account' : 'Sign In'}
+              </button>
+            </div>
+          </form>
+          <div id="acc-msg" style="font-size:12px;text-align:center;min-height:16px;"></div>
+        </div>
+      `;
+
+      const tabSignIn = bodyEl.querySelector('#tab-signin-btn');
+      const tabSignUp = bodyEl.querySelector('#tab-signup-btn');
+      const emailInp = bodyEl.querySelector('#acc-email-input');
+      const passInp = bodyEl.querySelector('#acc-password-input');
+      const usernameInp = bodyEl.querySelector('#acc-username-input');
+      const usernameBadge = bodyEl.querySelector('#acc-username-badge');
+      const submitBtn = bodyEl.querySelector('#acc-submit-btn');
+      const msg = bodyEl.querySelector('#acc-msg');
+
+      tabSignIn.onclick = () => {
+        activeMode = 'signin';
+        updateUI();
+      };
+      tabSignUp.onclick = () => {
+        activeMode = 'signup';
+        updateUI();
+      };
+
+      if (usernameInp && usernameBadge) {
+        usernameInp.oninput = () => {
+          clearTimeout(usernameDebounce);
+          const val = usernameInp.value.trim();
+          if (!val) {
+            usernameBadge.textContent = '';
+            return;
+          }
+          if (val.length < 3) {
+            usernameBadge.style.color = '#ff9f0a';
+            usernameBadge.textContent = 'Min 3 chars';
+            return;
+          }
+          usernameBadge.style.color = 'rgba(255,255,255,0.6)';
+          usernameBadge.textContent = 'Scanning...';
+          usernameDebounce = setTimeout(async () => {
+            const res = await window.AeroAuth.checkUsernameAvailable(val);
+            if (res.available) {
+              usernameBadge.style.color = '#30d158';
+              usernameBadge.textContent = '✓ Available';
+            } else {
+              usernameBadge.style.color = '#ff453a';
+              usernameBadge.textContent = res.error || 'Taken';
+            }
+          }, 300);
+        };
+      }
+
+      submitBtn.onclick = async () => {
+        const email = emailInp.value.trim();
+        const pass = passInp.value;
+        if (!email || !pass) {
+          msg.style.color = '#ff453a';
+          msg.textContent = 'Enter email and password';
+          return;
+        }
+
+        if (isSignUp) {
+          const u = usernameInp ? usernameInp.value.trim() : '';
+          if (!u) {
             msg.style.color = '#ff453a';
-            msg.textContent = 'Enter email and password';
+            msg.textContent = 'Choose a username';
+            return;
+          }
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Checking availability...';
+          const check = await window.AeroAuth.checkUsernameAvailable(u);
+          if (!check.available) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Claim Username & Create Account';
+            msg.style.color = '#ff453a';
+            msg.textContent = check.error || 'Username is taken';
             return;
           }
 
-          if (isSignUp) {
-            const username = (usernameInp ? usernameInp.value.trim() : '');
-            if (!username) {
-              msg.style.color = '#ff453a';
-              msg.textContent = 'Choose a username';
-              return;
-            }
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Checking availability...';
-            const check = await window.AeroAuth.checkUsernameAvailable(username);
-            if (!check.available) {
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Claim Username & Create Account';
-              msg.style.color = '#ff453a';
-              msg.textContent = check.error || 'Username is already taken';
-              return;
-            }
-
-            submitBtn.textContent = 'Creating account...';
-            try {
-              await window.AeroAuth.signUp(email, pass, username);
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Claim Username & Create Account';
-              msg.style.color = '#30d158';
-              msg.textContent = 'Account created successfully!';
-              updateUI();
-            } catch (err) {
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Claim Username & Create Account';
-              msg.style.color = '#ff453a';
-              msg.textContent = err.message || 'Signup failed';
-            }
-          } else {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Signing in...';
-            try {
-              await window.AeroAuth.signIn(email, pass);
-              updateUI();
-            } catch (err) {
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Sign In';
-              msg.style.color = '#ff453a';
-              msg.textContent = err.message || 'Login failed';
-            }
+          submitBtn.textContent = 'Creating account...';
+          try {
+            await window.AeroAuth.signUp(email, pass, u);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Claim Username & Create Account';
+            activeMode = 'view';
+            updateUI();
+          } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Claim Username & Create Account';
+            msg.style.color = '#ff453a';
+            msg.textContent = err.message || 'Signup failed';
           }
-        };
-      }
+        } else {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Signing in...';
+          try {
+            await window.AeroAuth.signIn(email, pass);
+            activeMode = 'view';
+            updateUI();
+          } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign In';
+            msg.style.color = '#ff453a';
+            msg.textContent = err.message || 'Login failed';
+          }
+        }
+      };
     }
 
     updateUI();
     window.addEventListener('aero:auth-change', updateUI);
     window.addEventListener('aero:sync-complete', updateUI);
+    window.addEventListener('aero:profile-changed', updateUI);
   }
 
     function mountAppContent(appId, bodyEl, options) {
