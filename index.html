@@ -379,40 +379,21 @@
 
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="uv/uv.bundle.js"></script>
-  <script src="uv/uv.config.js"></script>
   <script>
-    window.uvReadyPromise = new Promise((resolve) => {
-      if ('serviceWorker' in navigator) {
-        const aeroMatch = window.location.pathname.match(/^\/([Aa]ero)/);
-        const repoPrefix = aeroMatch ? '/' + aeroMatch[1] : '';
-        const swPath = repoPrefix ? repoPrefix + '/sw.js' : '/sw.js';
-        const swScope = repoPrefix ? repoPrefix + '/' : '/';
-        navigator.serviceWorker.register(swPath, { scope: swScope })
-          .then(() => navigator.serviceWorker.ready)
-          .then(() => {
-            if (!navigator.serviceWorker.controller) {
-              navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
-              setTimeout(resolve, 800);
-            } else {
-              resolve();
-            }
-          })
-          .catch((err) => {
-            console.warn('UV Service Worker registration failed:', err);
-            resolve();
-          });
-      } else {
-        resolve();
-      }
-    });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          reg.unregister();
+        }
+      });
+    }
   </script>
-  <script src="js/icons.js?v=4.9"></script>
-  <script src="js/auth.js?v=4.9"></script>
-  <script src="js/liquidgl.js?v=4.9"></script>
-  <script src="js/music.js?v=4.9"></script>
-  <script src="js/apps.js?v=4.9"></script>
-  <script src="js/droplet.js?v=4.9"></script>
-  <script src="js/os.js?v=4.9"></script>
+  <script src="js/icons.js?v=5.0"></script>
+  <script src="js/auth.js?v=5.0"></script>
+  <script src="js/liquidgl.js?v=5.0"></script>
+  <script src="js/music.js?v=5.0"></script>
+  <script src="js/apps.js?v=5.0"></script>
+  <script src="js/droplet.js?v=5.0"></script>
+  <script src="js/os.js?v=5.0"></script>
 </body>
 </html>
