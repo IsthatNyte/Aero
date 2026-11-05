@@ -1,30 +1,14 @@
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
+const isAero = location.pathname.startsWith('/Aero');
+const uvBase = isAero ? '/Aero/uv/' : '/uv/';
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
+importScripts(uvBase + 'uv.bundle.js');
+importScripts(uvBase + 'uv.config.js');
+importScripts(uvBase + 'uv.sw.js');
 
-self.addEventListener('message', (event) => {
-  const data = event.data || {};
-  if (data.type === 'SHOW_DIGEST_NOTIFICATION') {
-    const title = data.title || 'Droplet Daily Digest';
-    const body = data.body || 'Your summary is ready.';
-    if (self.registration && self.registration.showNotification) {
-      self.registration.showNotification(title, {
-        body,
-        tag: 'droplet-digest-' + Date.now()
-      }).catch(() => {});
-    }
-    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({
-          type: 'DIGEST_DELIVERED',
-          title,
-          body
-        });
-      });
-    });
+const uv = new UVServiceWorker();
+
+self.addEventListener('fetch', (event) => {
+  if (uv.route(event)) {
+    event.respondWith(uv.fetch(event));
   }
 });

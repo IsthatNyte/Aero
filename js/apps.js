@@ -55,9 +55,13 @@ window.GoldenGateApps = (function () {
   function toProxyUrl(targetUrl) {
     if (!targetUrl) return '';
     if (targetUrl.startsWith('aero://') || targetUrl.startsWith('/proxy?url=')) return targetUrl;
+    if (window.__uv$config && targetUrl.startsWith(window.__uv$config.prefix)) return targetUrl;
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocal) {
       return `/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+    if (window.__uv$config && typeof Ultraviolet !== 'undefined') {
+      return window.__uv$config.prefix + window.__uv$config.encodeUrl(targetUrl);
     }
     return targetUrl;
   }
@@ -995,13 +999,8 @@ window.GoldenGateApps = (function () {
         function handleSearchOrUrl(raw) {
           const trimmed = raw.trim();
           if (!trimmed) return;
-          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-          if (!isLocal) {
-            const nextUrl = normalizeUrl(trimmed);
-            openInAboutBlank(nextUrl, trimmed);
-          } else {
-            navigateTab(trimmed);
-          }
+          const nextUrl = normalizeUrl(trimmed);
+          navigateTab(nextUrl, trimmed);
         }
 
         pane.querySelector('.aero-home-search-form')?.addEventListener('submit', (e) => {
