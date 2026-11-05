@@ -996,11 +996,15 @@ window.GoldenGateApps = (function () {
           <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;">
             <div style="padding:4px 12px;background:#0c101c;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);flex-shrink:0;">
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">${tab.url}</span>
-              <a href="${tab.url}" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px;">Open tab &#8599;</a>
+              <button class="hel-open-ext-link" style="background:transparent;border:none;color:#38bdf8;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;font-size:11px;font-family:inherit;padding:0;">Open tab &#8599;</button>
             </div>
             <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
           </div>
         `;
+        pane.querySelector('.hel-open-ext-link')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          openInAboutBlank(tab.url, tab.title);
+        });
       }
     }
 
@@ -1104,11 +1108,45 @@ window.GoldenGateApps = (function () {
       const pane = tabPaneEls.get(activeTab.id);
       if (pane) mountPaneContent(pane, activeTab);
     };
+    function openInAboutBlank(url, title) {
+      if (!url || url.startsWith('aero://')) return;
+      const win = window.open('about:blank', '_blank');
+      if (!win) {
+        window.open(url, '_blank', 'noopener');
+        return;
+      }
+      try {
+        const doc = win.document;
+        doc.title = title || 'Google';
+        const link = doc.createElement('link');
+        link.rel = 'icon';
+        link.href = 'https://www.google.com/favicon.ico';
+        doc.head.appendChild(link);
+
+        const iframe = doc.createElement('iframe');
+        iframe.src = url;
+        iframe.style.position = 'fixed';
+        iframe.style.top = '0';
+        iframe.style.left = '0';
+        iframe.style.width = '100vw';
+        iframe.style.height = '100vh';
+        iframe.style.border = 'none';
+        iframe.style.margin = '0';
+        iframe.style.padding = '0';
+        iframe.setAttribute('allow', 'fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write');
+
+        doc.body.style.margin = '0';
+        doc.body.style.padding = '0';
+        doc.body.style.height = '100vh';
+        doc.body.style.overflow = 'hidden';
+        doc.body.appendChild(iframe);
+      } catch (err) {
+        win.location.href = url;
+      }
+    }
     bodyEl.querySelector('#hel-ext-btn').onclick = () => {
       const activeTab = getActiveTab();
-      if (activeTab.url && !activeTab.url.startsWith('aero://')) {
-        window.open(activeTab.url, '_blank', 'noopener');
-      }
+      openInAboutBlank(activeTab.url, activeTab.title);
     };
     bodyEl.querySelector('#hel-games-btn').onclick = () => navigateTab('aero://games', 'games');
     bodyEl.querySelector('#hel-pin-btn').onclick = () => {
