@@ -568,6 +568,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     base_href = f"{parsed_final.scheme}://{parsed_final.netloc}/"
                     base_tag = f'<base href="{base_href}">'
 
+                    # Rewrite root-relative asset URLs so they load from the target origin
+                    text = re.sub(r'(href|src)=(["\'])/(?!/)', r'\1=\2' + base_href, text)
+
                     if re.search(r'<head[^>]*>', text, flags=re.IGNORECASE):
                         text = re.sub(
                             r'(<head[^>]*>)',

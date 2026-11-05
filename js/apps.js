@@ -24,8 +24,8 @@ window.GoldenGateApps = (function () {
 
   // Shared Games Catalog Cache (Fetched from gn-math/assets zones.json using raw.githubusercontent.com)
   let cachedGamesCatalog = null;
-  const COVER_BASE = 'https://raw.githubusercontent.com/gn-math/covers/main';
-  const HTML_BASE = 'https://raw.githubusercontent.com/gn-math/html/main';
+  const COVER_BASE = 'https://raw.githubusercontent.com/gn-math/covers/master';
+  const HTML_BASE = 'https://raw.githubusercontent.com/gn-math/html/master';
 
   async function fetchGamesCatalog() {
     if (cachedGamesCatalog) return cachedGamesCatalog;
@@ -55,7 +55,11 @@ window.GoldenGateApps = (function () {
   function toProxyUrl(targetUrl) {
     if (!targetUrl) return '';
     if (targetUrl.startsWith('aero://') || targetUrl.startsWith('/proxy?url=')) return targetUrl;
-    return `/proxy?url=${encodeURIComponent(targetUrl)}`;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      return `/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+    return targetUrl;
   }
 
   // ==========================================================================
@@ -782,12 +786,30 @@ window.GoldenGateApps = (function () {
       const body = containerEl.querySelector('#gm-body');
 
       if (sourceMode === 'truffled') {
-        body.innerHTML = `<iframe src="${toProxyUrl('https://truffled.lol/g')}" style="width:100%;height:100%;border:none;background:#121e1e;"></iframe>`;
+        const truffledSrc = toProxyUrl('https://truffled.lol/g');
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;width:100%;height:100%;background:#121e1e;">
+            <div style="padding:6px 14px;background:#0c1515;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>Source: truffled.lol/g</span>
+              <a href="https://truffled.lol/g" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:none;font-weight:600;">Open tab ↗</a>
+            </div>
+            <iframe src="${truffledSrc}" style="flex:1;width:100%;border:none;background:#121e1e;" allow="fullscreen; autoplay; gamepad"></iframe>
+          </div>
+        `;
         return;
       }
 
       if (sourceMode === 'gn-portal') {
-        body.innerHTML = `<iframe src="${toProxyUrl('https://gn-math.dev/#games')}" style="width:100%;height:100%;border:none;background:#0d111a;"></iframe>`;
+        const gnSrc = toProxyUrl('https://gn-math.dev/');
+        body.innerHTML = `
+          <div style="display:flex;flex-direction:column;width:100%;height:100%;background:#0d111a;">
+            <div style="padding:6px 14px;background:#080b11;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>Source: gn-math.dev</span>
+              <a href="https://gn-math.dev/" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:none;font-weight:600;">Open tab ↗</a>
+            </div>
+            <iframe src="${gnSrc}" style="flex:1;width:100%;border:none;background:#0d111a;" allow="fullscreen; autoplay; gamepad"></iframe>
+          </div>
+        `;
         return;
       }
 
