@@ -5,6 +5,7 @@
 
   let client = null;
   let currentUser = null;
+  let currentUsername = localStorage.getItem('webos_account_username') || '';
   let lastSyncTime = null;
   let isSyncing = false;
   let syncTimeout = null;
@@ -23,7 +24,11 @@
         // Listen for auth state changes
         client.auth.onAuthStateChange((event, session) => {
           currentUser = session ? session.user : null;
-          window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event, user: currentUser } }));
+          if (currentUser && currentUser.user_metadata && currentUser.user_metadata.username) {
+            currentUsername = currentUser.user_metadata.username;
+            localStorage.setItem('webos_account_username', currentUsername);
+          }
+          window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event, user: currentUser, username: currentUsername } }));
           if (currentUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
             loadFromCloud();
           }
@@ -33,7 +38,11 @@
         client.auth.getSession().then(({ data }) => {
           if (data && data.session) {
             currentUser = data.session.user;
-            window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event: 'INITIAL_SESSION', user: currentUser } }));
+            if (currentUser && currentUser.user_metadata && currentUser.user_metadata.username) {
+              currentUsername = currentUser.user_metadata.username;
+              localStorage.setItem('webos_account_username', currentUsername);
+            }
+            window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event: 'INITIAL_SESSION', user: currentUser, username: currentUsername } }));
             loadFromCloud();
           }
         });
@@ -55,17 +64,65 @@
     return currentUser;
   }
 
+  function getUsername() {
+    return currentUsername || (currentUser && currentUser.user_metadata ? currentUser.user_metadata.username : '') || '';
+  }
+
   function getLastSyncTime() {
     return lastSyncTime;
   }
 
-  async function signUp(email, password) {
+  async function checkUsernameAvailable(rawUsername) {
+    if (!client) return { available: false, error: 'Auth client not ready' };
+    const username = (rawUsername || '').trim();
+    if (username.length < 3) {
+      return { available: false, error: 'Username must be at least 3 characters' };
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return { available: false, error: 'Only letters, numbers, and underscores allowed' };
+    }
+    const tables = ['profiles', 'user_profiles', 'User Profiles'];
+    for (const tbl of tables) {
+      try {
+        const { data, error } = await client
+          .from(tbl)
+          .select('id')
+          .ilike('username', username)
+          .limit(1);
+        if (!error) {
+          if (data && data.length > 0) {
+            return { available: false, error: 'Username already taken' };
+          }
+          return { available: true };
+        }
+      } catch (e) {}
+    }
+    return { available: true };
+  }
+
+  async function signUp(email, password, rawUsername = '') {
     if (!client) throw new Error('Auth client not initialized');
-    const res = await client.auth.signUp({ email, password });
+    const username = (rawUsername || '').trim();
+    if (username) {
+      const check = await checkUsernameAvailable(username);
+      if (!check.available) {
+        throw new Error(check.error || 'Username already taken');
+      }
+    }
+    const res = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username: username }
+      }
+    });
     if (res.error) throw res.error;
     currentUser = res.data.user;
+    if (username) {
+      currentUsername = username;
+      localStorage.setItem('webos_account_username', username);
+    }
     if (currentUser) {
-      // Create initial profile row
       await saveToCloud();
     }
     return res.data;
@@ -76,6 +133,10 @@
     const res = await client.auth.signInWithPassword({ email, password });
     if (res.error) throw res.error;
     currentUser = res.data.user;
+    if (currentUser && currentUser.user_metadata && currentUser.user_metadata.username) {
+      currentUsername = currentUser.user_metadata.username;
+      localStorage.setItem('webos_account_username', currentUsername);
+    }
     if (currentUser) {
       await loadFromCloud();
     }
@@ -86,8 +147,10 @@
     if (!client) return;
     await client.auth.signOut();
     currentUser = null;
+    currentUsername = '';
+    localStorage.removeItem('webos_account_username');
     lastSyncTime = null;
-    window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event: 'SIGNED_OUT', user: null } }));
+    window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event: 'SIGNED_OUT', user: null, username: '' } }));
   }
 
   function scheduleAutoSync() {
@@ -147,8 +210,11 @@
       let memories = [];
       try { memories = JSON.parse(dropletMemories); } catch (e) {}
 
+      const activeUsername = currentUsername || (currentUser.user_metadata ? currentUser.user_metadata.username : '') || '';
+
       const payload = {
         id: currentUser.id,
+        username: activeUsername,
         settings: {
           lgl: lgl,
           desktop: JSON.parse(localStorage.getItem('webos_desktop_items_v2') || '[]'),
@@ -186,6 +252,12 @@
         return;
       }
 
+      // Restore Username
+      if (row.username) {
+        currentUsername = row.username;
+        localStorage.setItem('webos_account_username', currentUsername);
+      }
+
       // Restore Playlists
       if (Array.isArray(row.playlists) && row.playlists.length > 0) {
         localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(row.playlists));
@@ -213,7 +285,8 @@
       lastSyncTime = new Date();
       window.dispatchEvent(new CustomEvent('aero:sync-complete', { detail: { time: lastSyncTime } }));
       if (window.OS && window.OS.showNotification) {
-        window.OS.showNotification('Account Synced', `Loaded profile for ${currentUser.email}`);
+        const displayName = currentUsername ? `@${currentUsername}` : currentUser.email;
+        window.OS.showNotification('Account Synced', `Loaded profile for ${displayName}`);
       }
     } catch (err) {
       console.warn('Load from cloud error:', err);
@@ -226,6 +299,8 @@
     init,
     getClient,
     getUser,
+    getUsername,
+    checkUsernameAvailable,
     signUp,
     signIn,
     signOut,

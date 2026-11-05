@@ -1662,6 +1662,16 @@ window.GoldenGateOS = (function () {
     if (window.GoldenGateDroplet?.init) {
       window.GoldenGateDroplet.init();
     }
+
+    // First-visit Account popup
+    setTimeout(() => {
+      const prompted = localStorage.getItem('webos_account_prompted_v2');
+      const user = window.AeroAuth ? window.AeroAuth.getUser() : null;
+      if (!prompted && !user) {
+        localStorage.setItem('webos_account_prompted_v2', 'true');
+        launchApp('account');
+      }
+    }, 800);
   }
 
   document.addEventListener('DOMContentLoaded', init);

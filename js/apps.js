@@ -2020,8 +2020,12 @@ console.log("Fibonacci(10):", result.join(", "));
   
   // 13. account / cloud sync
   function renderAccount(bodyEl) {
+    let activeMode = 'signin'; // 'signin' or 'signup'
+    let usernameDebounce = null;
+
     function updateUI() {
       const user = window.AeroAuth ? window.AeroAuth.getUser() : null;
+      const username = window.AeroAuth ? window.AeroAuth.getUsername() : '';
       const lastSync = window.AeroAuth ? window.AeroAuth.getLastSyncTime() : null;
 
       let playlistsCount = 0;
@@ -2033,7 +2037,8 @@ console.log("Fibonacci(10):", result.join(", "));
 
       if (user) {
         const email = user.email || 'User';
-        const initial = email.charAt(0).toUpperCase();
+        const displayName = username ? `@${username}` : email;
+        const initial = (username || email).charAt(0).toUpperCase();
         const syncText = lastSync ? ('Synced at ' + lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : 'Cloud connected';
 
         bodyEl.innerHTML = `
@@ -2042,8 +2047,9 @@ console.log("Fibonacci(10):", result.join(", "));
               ${initial}
             </div>
             <div>
-              <div style="font-size:18px;font-weight:600;color:#fff;">${email}</div>
-              <div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#30d158;background:rgba(48,209,88,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(48,209,88,0.25);">
+              <div style="font-size:20px;font-weight:700;color:#fff;">${displayName}</div>
+              ${username ? `<div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">${email}</div>` : ''}
+              <div style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#30d158;background:rgba(48,209,88,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(48,209,88,0.25);">
                 <span style="width:7px;height:7px;border-radius:50%;background:#30d158;"></span>
                 <span>${syncText}</span>
               </div>
@@ -2113,40 +2119,60 @@ console.log("Fibonacci(10):", result.join(", "));
           };
         }
       } else {
+        const isSignUp = activeMode === 'signup';
         bodyEl.innerHTML = `
           <div style="display:flex;flex-direction:column;padding:24px 20px;height:100%;box-sizing:border-box;gap:14px;overflow-y:auto;">
             <div style="text-align:center;">
-              <div style="width:56px;height:56px;border-radius:50%;background:rgba(10,132,255,0.15);border:1px solid rgba(10,132,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <div style="width:52px;height:52px;border-radius:50%;background:rgba(10,132,255,0.15);border:1px solid rgba(10,132,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
               </div>
-              <div style="font-size:18px;font-weight:700;color:#fff;">Aero Account</div>
+              <div style="font-size:18px;font-weight:700;color:#fff;">${isSignUp ? 'Create Aero Account' : 'Welcome to Aero'}</div>
               <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;">
-                Sign in to save your playlists, wallpapers, themes, and music tastes.
+                Save and sync your playlists, wallpaper, themes, and tastes.
               </div>
             </div>
 
-            <form id="acc-auth-form" style="display:flex;flex-direction:column;gap:12px;margin-top:6px;" onsubmit="return false;">
+            <!-- Tab Switcher -->
+            <div style="display:flex;background:rgba(255,255,255,0.06);padding:3px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);">
+              <button id="tab-signin-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${!isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
+                Sign In
+              </button>
+              <button id="tab-signup-btn" class="btn-flat" style="flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;background:${isSignUp ? '#0a84ff' : 'transparent'};color:#fff;">
+                Create Account
+              </button>
+            </div>
+
+            <form id="acc-auth-form" style="display:flex;flex-direction:column;gap:11px;margin-top:4px;" onsubmit="return false;">
+              ${isSignUp ? `
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Username</label>
+                    <span id="acc-username-badge" style="font-size:11px;font-weight:500;"></span>
+                  </div>
+                  <input id="acc-username-input" type="text" placeholder="e.g. nyte" autocomplete="off" required
+                    style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+                </div>
+              ` : ''}
+
               <div>
                 <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Email</label>
                 <input id="acc-email-input" type="email" placeholder="you@example.com" required
-                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
               </div>
+
               <div>
                 <label style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Password</label>
                 <input id="acc-password-input" type="password" placeholder="Password (min 6 characters)" required
-                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
+                  style="width:100%;box-sizing:border-box;margin-top:4px;padding:9px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;outline:none;" />
               </div>
-              <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-                <button id="acc-signin-btn" class="btn-flat" type="button"
+
+              <div style="margin-top:6px;">
+                <button id="acc-submit-btn" class="btn-flat" type="button"
                   style="width:100%;padding:11px;background:#0a84ff;color:#fff;font-weight:600;border-radius:8px;">
-                  Sign In
-                </button>
-                <button id="acc-signup-btn" class="btn-flat" type="button"
-                  style="width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#fff;border-radius:8px;">
-                  Create Account
+                  ${isSignUp ? 'Claim Username & Create Account' : 'Sign In'}
                 </button>
               </div>
             </form>
@@ -2154,35 +2180,60 @@ console.log("Fibonacci(10):", result.join(", "));
           </div>
         `;
 
+        const tabSignIn = bodyEl.querySelector('#tab-signin-btn');
+        const tabSignUp = bodyEl.querySelector('#tab-signup-btn');
         const emailInp = bodyEl.querySelector('#acc-email-input');
         const passInp = bodyEl.querySelector('#acc-password-input');
-        const signinBtn = bodyEl.querySelector('#acc-signin-btn');
-        const signupBtn = bodyEl.querySelector('#acc-signup-btn');
+        const usernameInp = bodyEl.querySelector('#acc-username-input');
+        const usernameBadge = bodyEl.querySelector('#acc-username-badge');
+        const submitBtn = bodyEl.querySelector('#acc-submit-btn');
         const msg = bodyEl.querySelector('#acc-msg');
 
-        signinBtn.onclick = async () => {
-          const email = emailInp.value.trim();
-          const pass = passInp.value;
-          if (!email || !pass) {
-            msg.style.color = '#ff453a';
-            msg.textContent = 'Enter email and password';
-            return;
-          }
-          signinBtn.disabled = true;
-          signinBtn.textContent = 'Signing in...';
-          msg.textContent = '';
-          try {
-            await window.AeroAuth.signIn(email, pass);
-            updateUI();
-          } catch (err) {
-            msg.style.color = '#ff453a';
-            msg.textContent = err.message || 'Login failed';
-            signinBtn.disabled = false;
-            signinBtn.textContent = 'Sign In';
-          }
+        let isUsernameAvailable = false;
+
+        tabSignIn.onclick = () => {
+          activeMode = 'signin';
+          updateUI();
         };
 
-        signupBtn.onclick = async () => {
+        tabSignUp.onclick = () => {
+          activeMode = 'signup';
+          updateUI();
+        };
+
+        if (usernameInp && usernameBadge) {
+          usernameInp.oninput = () => {
+            clearTimeout(usernameDebounce);
+            const val = usernameInp.value.trim();
+            if (!val) {
+              usernameBadge.textContent = '';
+              isUsernameAvailable = false;
+              return;
+            }
+            if (val.length < 3) {
+              usernameBadge.style.color = '#ff9f0a';
+              usernameBadge.textContent = 'Min 3 chars';
+              isUsernameAvailable = false;
+              return;
+            }
+            usernameBadge.style.color = 'rgba(255,255,255,0.6)';
+            usernameBadge.textContent = 'Scanning...';
+            usernameDebounce = setTimeout(async () => {
+              const res = await window.AeroAuth.checkUsernameAvailable(val);
+              if (res.available) {
+                usernameBadge.style.color = '#30d158';
+                usernameBadge.textContent = '✓ Available';
+                isUsernameAvailable = true;
+              } else {
+                usernameBadge.style.color = '#ff453a';
+                usernameBadge.textContent = res.error || 'Taken';
+                isUsernameAvailable = false;
+              }
+            }, 300);
+          };
+        }
+
+        submitBtn.onclick = async () => {
           const email = emailInp.value.trim();
           const pass = passInp.value;
           if (!email || !pass) {
@@ -2190,21 +2241,51 @@ console.log("Fibonacci(10):", result.join(", "));
             msg.textContent = 'Enter email and password';
             return;
           }
-          signupBtn.disabled = true;
-          signupBtn.textContent = 'Creating account...';
-          msg.textContent = '';
-          try {
-            await window.AeroAuth.signUp(email, pass);
-            signupBtn.disabled = false;
-            signupBtn.textContent = 'Create Account';
-            msg.style.color = '#30d158';
-            msg.textContent = 'Account created. Check your email if confirmation is required.';
-            updateUI();
-          } catch (err) {
-            msg.style.color = '#ff453a';
-            msg.textContent = err.message || 'Signup failed';
-            signupBtn.disabled = false;
-            signupBtn.textContent = 'Create Account';
+
+          if (isSignUp) {
+            const username = (usernameInp ? usernameInp.value.trim() : '');
+            if (!username) {
+              msg.style.color = '#ff453a';
+              msg.textContent = 'Choose a username';
+              return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Checking availability...';
+            const check = await window.AeroAuth.checkUsernameAvailable(username);
+            if (!check.available) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Claim Username & Create Account';
+              msg.style.color = '#ff453a';
+              msg.textContent = check.error || 'Username is already taken';
+              return;
+            }
+
+            submitBtn.textContent = 'Creating account...';
+            try {
+              await window.AeroAuth.signUp(email, pass, username);
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Claim Username & Create Account';
+              msg.style.color = '#30d158';
+              msg.textContent = 'Account created successfully!';
+              updateUI();
+            } catch (err) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Claim Username & Create Account';
+              msg.style.color = '#ff453a';
+              msg.textContent = err.message || 'Signup failed';
+            }
+          } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in...';
+            try {
+              await window.AeroAuth.signIn(email, pass);
+              updateUI();
+            } catch (err) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Sign In';
+              msg.style.color = '#ff453a';
+              msg.textContent = err.message || 'Login failed';
+            }
           }
         };
       }
@@ -2215,7 +2296,7 @@ console.log("Fibonacci(10):", result.join(", "));
     window.addEventListener('aero:sync-complete', updateUI);
   }
 
-  function mountAppContent(appId, bodyEl, options) {
+    function mountAppContent(appId, bodyEl, options) {
     if (appId === "account") return renderAccount(bodyEl);
     switch (appId) {
       case 'music':
