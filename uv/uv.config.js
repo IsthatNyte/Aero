@@ -1,6 +1,7 @@
-const isAero = typeof location !== 'undefined' && location.pathname.startsWith('/Aero');
-const uvPrefix = isAero ? '/Aero/uv/service/' : '/uv/service/';
-const uvBase = isAero ? '/Aero/uv/' : '/uv/';
+const aeroMatch = typeof location !== 'undefined' ? location.pathname.match(/^\/([Aa]ero)/) : null;
+const repoPrefix = aeroMatch ? '/' + aeroMatch[1] : '';
+const uvPrefix = repoPrefix + '/uv/service/';
+const uvBase = repoPrefix + '/uv/';
 
 self.__uv$config = {
   prefix: uvPrefix,

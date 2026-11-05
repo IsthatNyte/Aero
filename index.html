@@ -384,9 +384,10 @@
   <script>
     window.uvReadyPromise = new Promise((resolve) => {
       if ('serviceWorker' in navigator) {
-        const isAero = window.location.pathname.startsWith('/Aero');
-        const swPath = isAero ? '/Aero/sw.js' : '/sw.js';
-        const swScope = isAero ? '/Aero/' : '/';
+        const aeroMatch = window.location.pathname.match(/^\/([Aa]ero)/);
+        const repoPrefix = aeroMatch ? '/' + aeroMatch[1] : '';
+        const swPath = repoPrefix ? repoPrefix + '/sw.js' : '/sw.js';
+        const swScope = repoPrefix ? repoPrefix + '/' : '/';
         navigator.serviceWorker.register(swPath, { scope: swScope })
           .then(() => navigator.serviceWorker.ready)
           .then(() => {
@@ -406,12 +407,12 @@
       }
     });
   </script>
-  <script src="js/icons.js?v=4.7"></script>
-  <script src="js/auth.js?v=4.7"></script>
-  <script src="js/liquidgl.js?v=4.7"></script>
-  <script src="js/music.js?v=4.7"></script>
-  <script src="js/apps.js?v=4.7"></script>
-  <script src="js/droplet.js?v=4.7"></script>
-  <script src="js/os.js?v=4.7"></script>
+  <script src="js/icons.js?v=4.8"></script>
+  <script src="js/auth.js?v=4.8"></script>
+  <script src="js/liquidgl.js?v=4.8"></script>
+  <script src="js/music.js?v=4.8"></script>
+  <script src="js/apps.js?v=4.8"></script>
+  <script src="js/droplet.js?v=4.8"></script>
+  <script src="js/os.js?v=4.8"></script>
 </body>
 </html>
