@@ -149,6 +149,13 @@ window.GoldenGateMusic = (function () {
       localStorage.setItem('webos_limusic_recent_v2', JSON.stringify(recentTracks));
       localStorage.setItem('webos_limusic_settings_v1', JSON.stringify(settings));
     } catch (e) {}
+    window.dispatchEvent(new CustomEvent('music:library-changed'));
+  }
+
+  function reloadLibrary() {
+    loadLibrary();
+    loadTasteModel();
+    notifyListeners();
   }
 
   function updateSettings(partial) {
@@ -1315,10 +1322,14 @@ window.GoldenGateMusic = (function () {
     updateTaskbarMiniPlayer();
     startVisualizerAndProgressLoop();
     loadHomeMood('All');
+    window.addEventListener('aero:sync-complete', () => {
+      reloadLibrary();
+    });
   }
 
   return {
     init,
+    reloadLibrary,
     getPlaylists: () => playlists,
     getLikedTracks: () => likedTracks,
     getRecentTracks: () => recentTracks,

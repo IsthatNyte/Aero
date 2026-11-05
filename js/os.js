@@ -100,6 +100,11 @@ window.GoldenGateOS = (function () {
     return items;
   }
 
+  window.addEventListener('desktop:reload', () => {
+    loadDesktopState();
+    renderDesktopIcons();
+  });
+
   function loadDesktopState() {
     try {
       const raw = localStorage.getItem(DESKTOP_STORAGE_KEY);
@@ -141,6 +146,7 @@ window.GoldenGateOS = (function () {
     try {
       localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(desktopItems));
     } catch (e) {}
+    window.dispatchEvent(new CustomEvent('desktop:changed'));
   }
 
   function showToast(msg) {

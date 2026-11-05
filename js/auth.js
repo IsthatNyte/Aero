@@ -82,6 +82,10 @@
 
     // Listen to local OS changes and debounced auto-sync
     window.addEventListener('liquidgl:changed', () => scheduleAutoSync());
+    window.addEventListener('music:library-changed', () => scheduleAutoSync());
+    window.addEventListener('notes:updated', () => scheduleAutoSync());
+    window.addEventListener('desktop:changed', () => scheduleAutoSync());
+    window.addEventListener('code:changed', () => scheduleAutoSync());
     window.addEventListener('storage', () => scheduleAutoSync());
   }
 
@@ -205,7 +209,7 @@
     clearTimeout(syncTimeout);
     syncTimeout = setTimeout(() => {
       saveToCloud(true);
-    }, 4000);
+    }, 2000);
   }
 
   // Helper to attempt upserting across possible table name variations
@@ -253,6 +257,16 @@
       let recent = [];
       try { recent = JSON.parse(recentRaw || '[]'); } catch (e) {}
 
+      const musicSettingsRaw = localStorage.getItem('webos_limusic_settings_v1');
+      let musicSettings = {};
+      try { musicSettings = JSON.parse(musicSettingsRaw || '{}'); } catch (e) {}
+
+      const desktopItems = JSON.parse(localStorage.getItem('webos_desktop_items_v5') || localStorage.getItem('webos_desktop_items_v2') || '[]');
+      const notesList = JSON.parse(localStorage.getItem('webos_notes_list_v2') || '[]');
+      const codeContent = localStorage.getItem('webos_code_editor_v1') || '';
+      const invisiproxyUrl = localStorage.getItem('aero_invisiproxy_url') || '';
+      const pinnedTaskbar = JSON.parse(localStorage.getItem('webos_pinned_taskbar_apps_v1') || '[]');
+
       const dropletMemories = localStorage.getItem('webos_droplet_memories') || '[]';
       let memories = [];
       try { memories = JSON.parse(dropletMemories); } catch (e) {}
@@ -266,8 +280,12 @@
         settings: {
           profile: profile,
           lgl: lgl,
-          desktop: JSON.parse(localStorage.getItem('webos_desktop_items_v2') || '[]'),
-          notes: JSON.parse(localStorage.getItem('webos_notes_list_v2') || '[]')
+          desktop: desktopItems,
+          notes: notesList,
+          code: codeContent,
+          invisiproxy_url: invisiproxyUrl,
+          pinned_taskbar: pinnedTaskbar,
+          music_settings: musicSettings
         },
         playlists: playlists,
         liked_songs: liked,
@@ -277,11 +295,32 @@
         droplet_info: { memories: memories }
       };
 
+      // 1. Save directly to Supabase Auth user_metadata (guaranteed to persist even if public DB tables are absent)
+      try {
+        if (client.auth && typeof client.auth.updateUser === 'function') {
+          const { data: authUpdateData } = await client.auth.updateUser({
+            data: {
+              aero_cloud_sync: payload,
+              username: activeUsername,
+              displayName: profile.displayName || activeUsername
+            }
+          });
+          if (authUpdateData && authUpdateData.user) {
+            currentUser = authUpdateData.user;
+            localStorage.setItem('webos_auth_cached_user', JSON.stringify(currentUser));
+          }
+        }
+      } catch (authErr) {
+        console.warn('Supabase auth metadata update error:', authErr);
+      }
+
+      // 2. Also try database table upsert
       await upsertProfile(payload);
+
       lastSyncTime = new Date();
       window.dispatchEvent(new CustomEvent('aero:sync-complete', { detail: { time: lastSyncTime } }));
-      if (!isBackground && window.OS && window.OS.showNotification) {
-        window.OS.showNotification('Cloud Synced', 'Your profile, playlists, and settings were saved.');
+      if (!isBackground && window.GoldenGateOS && window.GoldenGateOS.showNotification) {
+        window.GoldenGateOS.showNotification('Cloud Synced');
       }
     } catch (err) {
       console.warn('Sync to cloud error:', err);
@@ -294,52 +333,102 @@
     if (!client || !currentUser) return;
     isSyncing = true;
     try {
+      let metaPayload = null;
+      try {
+        const { data: authData } = await client.auth.getUser();
+        if (authData && authData.user) {
+          currentUser = authData.user;
+          localStorage.setItem('webos_auth_cached_user', JSON.stringify(currentUser));
+          if (currentUser.user_metadata && currentUser.user_metadata.aero_cloud_sync) {
+            metaPayload = currentUser.user_metadata.aero_cloud_sync;
+          }
+        }
+      } catch (e) {}
+
+      if (!metaPayload && currentUser.user_metadata && currentUser.user_metadata.aero_cloud_sync) {
+        metaPayload = currentUser.user_metadata.aero_cloud_sync;
+      }
+
       const row = await fetchProfile(currentUser.id);
-      if (!row) {
+      const data = metaPayload || row;
+
+      if (!data) {
         await saveToCloud(true);
         return;
       }
 
       // Restore Username
-      if (row.username) {
-        currentUsername = row.username;
+      if (data.username) {
+        currentUsername = data.username;
         localStorage.setItem('webos_account_username', currentUsername);
       }
 
-      // Restore Profile Customization (displayName, avatarUrl, bannerBg, bio)
-      if (row.settings && row.settings.profile) {
-        setProfile(row.settings.profile);
+      // Restore Profile Customization
+      if (data.settings && data.settings.profile) {
+        setProfile(data.settings.profile);
+      } else if (data.profile) {
+        setProfile(data.profile);
       }
 
       // Restore Playlists
-      if (Array.isArray(row.playlists) && row.playlists.length > 0) {
-        localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(row.playlists));
+      if (Array.isArray(data.playlists) && data.playlists.length > 0) {
+        localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(data.playlists));
       }
       // Restore Liked Songs
-      if (Array.isArray(row.liked_songs) && row.liked_songs.length > 0) {
-        localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(row.liked_songs));
+      if (Array.isArray(data.liked_songs) && data.liked_songs.length > 0) {
+        localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(data.liked_songs));
       }
       // Restore Listening History
-      if (Array.isArray(row.listening_history) && row.listening_history.length > 0) {
-        localStorage.setItem('webos_limusic_recent_v2', JSON.stringify(row.listening_history));
+      if (Array.isArray(data.listening_history) && data.listening_history.length > 0) {
+        localStorage.setItem('webos_limusic_recent_v2', JSON.stringify(data.listening_history));
       }
+      // Restore Music Settings
+      if (data.settings && data.settings.music_settings) {
+        localStorage.setItem('webos_limusic_settings_v1', JSON.stringify(data.settings.music_settings));
+      }
+
+      // Restore Desktop
+      const desktopItems = (data.settings && data.settings.desktop) || data.desktop;
+      if (Array.isArray(desktopItems) && desktopItems.length > 0) {
+        localStorage.setItem('webos_desktop_items_v5', JSON.stringify(desktopItems));
+        localStorage.setItem('webos_desktop_items_v2', JSON.stringify(desktopItems));
+        window.dispatchEvent(new CustomEvent('desktop:reload'));
+      }
+
+      // Restore Notes
+      if (data.settings && Array.isArray(data.settings.notes) && data.settings.notes.length > 0) {
+        localStorage.setItem('webos_notes_list_v2', JSON.stringify(data.settings.notes));
+        window.dispatchEvent(new CustomEvent('notes:updated'));
+      }
+
+      // Restore Code Scratchpad
+      if (data.settings && data.settings.code) {
+        localStorage.setItem('webos_code_editor_v1', data.settings.code);
+      }
+
+      // Restore InvisiProxy URL
+      if (data.settings && data.settings.invisiproxy_url) {
+        localStorage.setItem('aero_invisiproxy_url', data.settings.invisiproxy_url);
+      }
+
       // Restore LiquidGL Settings
-      if (row.settings && row.settings.lgl && Object.keys(row.settings.lgl).length > 0) {
-        localStorage.setItem('webos_lgl_state_v2', JSON.stringify(row.settings.lgl));
-        if (window.LiquidGL && window.LiquidGL.applyPreset) {
-          if (row.settings.lgl.activePreset) window.LiquidGL.applyPreset(row.settings.lgl.activePreset);
+      if (data.settings && data.settings.lgl && Object.keys(data.settings.lgl).length > 0) {
+        localStorage.setItem('webos_lgl_state_v2', JSON.stringify(data.settings.lgl));
+        if (window.LiquidGL && window.LiquidGL.applyPreset && data.settings.lgl.activePreset) {
+          window.LiquidGL.applyPreset(data.settings.lgl.activePreset);
         }
       }
-      // Restore Notes
-      if (row.settings && Array.isArray(row.settings.notes) && row.settings.notes.length > 0) {
-        localStorage.setItem('webos_notes_list_v2', JSON.stringify(row.settings.notes));
+
+      // Reload Music in memory
+      if (window.GoldenGateMusic && typeof window.GoldenGateMusic.reloadLibrary === 'function') {
+        window.GoldenGateMusic.reloadLibrary();
       }
 
       lastSyncTime = new Date();
       window.dispatchEvent(new CustomEvent('aero:sync-complete', { detail: { time: lastSyncTime } }));
-      if (window.OS && window.OS.showNotification) {
+      if (window.GoldenGateOS && window.GoldenGateOS.showNotification) {
         const displayName = currentUsername ? `@${currentUsername}` : currentUser.email;
-        window.OS.showNotification('Account Synced', `Loaded profile for ${displayName}`);
+        window.GoldenGateOS.showNotification(`Account Synced: ${displayName}`);
       }
     } catch (err) {
       console.warn('Load from cloud error:', err);

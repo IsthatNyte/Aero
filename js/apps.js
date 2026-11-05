@@ -1345,6 +1345,7 @@ console.log("Fibonacci(10):", result.join(", "));
       const linesCount = val.split('\n').length;
       gutter.innerHTML = Array.from({ length: linesCount }, (_, i) => i + 1).join('<br/>');
       localStorage.setItem(STORAGE_KEY, val);
+      window.dispatchEvent(new CustomEvent('code:changed'));
       statusEl.textContent = `${linesCount} lines`;
     }
 
