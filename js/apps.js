@@ -52,6 +52,8 @@ window.GoldenGateApps = (function () {
     return [];
   }
 
+  const DEFAULT_INVISIPROXY_URL = 'https://glowing-fishstick-r79x5gwxqgqc5rvw-8080.app.github.dev';
+
   function toProxyUrl(targetUrl) {
     if (!targetUrl) return '';
     if (targetUrl.startsWith('aero://') || targetUrl.startsWith('/proxy?url=')) return targetUrl;
@@ -59,7 +61,7 @@ window.GoldenGateApps = (function () {
     if (isLocal) {
       return `/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
-    const backend = (localStorage.getItem('aero_invisiproxy_url') || '').trim().replace(/\/+$/, '');
+    const backend = (localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL).trim().replace(/\/+$/, '');
     if (backend) {
       const fullUrl = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
       return `${backend}/scramjet/${fullUrl}`;
@@ -983,7 +985,7 @@ window.GoldenGateApps = (function () {
 
             <div style="background:#131824;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
               <span style="font-size:12px;color:#94a3b8;font-weight:600;white-space:nowrap;">InvisiProxy Backend:</span>
-              <input type="text" class="aero-invisi-backend-input" placeholder="e.g. https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || ''}" style="flex:1;background:#0b0f19;border:1px solid rgba(255,255,255,0.12);border-radius:6px;height:32px;padding:0 10px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none;" />
+              <input type="text" class="aero-invisi-backend-input" placeholder="e.g. https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" style="flex:1;background:#0b0f19;border:1px solid rgba(255,255,255,0.12);border-radius:6px;height:32px;padding:0 10px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none;" />
               <button type="button" class="aero-invisi-backend-save" style="background:#5e50b5;color:#ffffff;border:none;border-radius:6px;padding:0 14px;height:32px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>
             </div>
 
@@ -1055,7 +1057,7 @@ window.GoldenGateApps = (function () {
                   GitHub Pages cannot proxy web traffic directly. Connect your deployed InvisiProxy instance (running Scramjet/Wisp) to browse inside Aero tabs, or launch directly in an unblocked Google tab.
                 </div>
                 <div style="display:flex;gap:8px;width:100%;margin-top:6px;">
-                  <input type="text" class="tab-invisi-backend-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || ''}" style="flex:1;background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 12px;height:40px;color:#ffffff;font-size:13px;outline:none;font-family:inherit;" />
+                  <input type="text" class="tab-invisi-backend-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" style="flex:1;background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 12px;height:40px;color:#ffffff;font-size:13px;outline:none;font-family:inherit;" />
                   <button type="button" class="tab-invisi-backend-btn" style="background:#5e50b5;color:#ffffff;border:none;padding:0 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Connect</button>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:6px;">
@@ -1194,7 +1196,7 @@ window.GoldenGateApps = (function () {
     };
     function openInAboutBlank(url, title) {
       if (!url || url.startsWith('aero://')) return;
-      const backend = (localStorage.getItem('aero_invisiproxy_url') || '').trim().replace(/\/+$/, '');
+      const backend = (localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL).trim().replace(/\/+$/, '');
       const fullUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
       const finalSrc = backend ? `${backend}/scramjet/${fullUrl}` : fullUrl;
 
