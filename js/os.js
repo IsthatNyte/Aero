@@ -1026,15 +1026,108 @@ window.GoldenGateOS = (function () {
   }
 
   // ==========================================================================
-  // Taskbar Apps + macOS Dock Magnification on Hover
+  // Taskbar Pinning & Dynamic App Dock
   // ==========================================================================
+  const TASKBAR_PINNED_STORAGE_KEY = 'webos_taskbar_pinned_v3';
+  let pinnedAppIds = ['aero', 'music', 'games', 'account'];
+  try {
+    const rawPinned = localStorage.getItem(TASKBAR_PINNED_STORAGE_KEY);
+    if (rawPinned) {
+      const parsed = JSON.parse(rawPinned);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        pinnedAppIds = parsed;
+      }
+    }
+  } catch (e) {}
+
+  function savePinnedApps() {
+    try {
+      localStorage.setItem(TASKBAR_PINNED_STORAGE_KEY, JSON.stringify(pinnedAppIds));
+    } catch (e) {}
+  }
+
+  function isAppPinned(appId) {
+    return pinnedAppIds.includes(appId);
+  }
+
+  function pinApp(appId) {
+    if (!pinnedAppIds.includes(appId)) {
+      pinnedAppIds.push(appId);
+      savePinnedApps();
+      renderTaskbarApps();
+      showToast('Pinned to taskbar');
+    }
+  }
+
+  function unpinApp(appId) {
+    pinnedAppIds = pinnedAppIds.filter((id) => id !== appId);
+    savePinnedApps();
+    renderTaskbarApps();
+    showToast('Unpinned from taskbar');
+  }
+
+  function togglePinApp(appId) {
+    if (isAppPinned(appId)) {
+      unpinApp(appId);
+    } else {
+      pinApp(appId);
+    }
+  }
+
+  let taskbarContextAppId = null;
+
+  function openTaskbarContextMenu(appId, clientX, clientY) {
+    closeOverlays();
+    const menu = document.getElementById('taskbar-context-menu');
+    if (!menu) return;
+
+    taskbarContextAppId = appId;
+    const appDef = window.GoldenGateApps.getApps().find((a) => a.id === appId);
+    const titleEl = document.getElementById('taskbar-ctx-title');
+    const pinLabel = document.getElementById('taskbar-ctx-pin-label');
+    const closeBtn = document.getElementById('taskbar-ctx-close');
+
+    if (titleEl) titleEl.textContent = appDef ? appDef.title : appId;
+    const isPinned = isAppPinned(appId);
+    if (pinLabel) pinLabel.textContent = isPinned ? 'Unpin from Taskbar' : 'Pin to Taskbar';
+
+    const isRunning = openWindows.has(appId);
+    if (closeBtn) closeBtn.classList.toggle('hidden', !isRunning);
+
+    menu.classList.remove('hidden');
+    menu.style.zIndex = ++topZ;
+
+    const menuWidth = 200;
+    const menuHeight = 110;
+    const x = Math.min(window.innerWidth - menuWidth - 10, Math.max(10, clientX - menuWidth / 2));
+    const y = Math.max(10, clientY - menuHeight - 10);
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+  }
+
   function renderTaskbarApps() {
     const bar = document.getElementById('taskbar-apps');
     if (!bar) return;
 
-    bar.innerHTML = window.GoldenGateApps.getApps()
-      .map((app) => {
-        const w = openWindows.get(app.id);
+    const allApps = window.GoldenGateApps.getApps();
+    const allAppsMap = new Map(allApps.map((a) => [a.id, a]));
+
+    const appIdsToRender = [];
+    pinnedAppIds.forEach((id) => {
+      if (allAppsMap.has(id) && !appIdsToRender.includes(id)) {
+        appIdsToRender.push(id);
+      }
+    });
+    openWindows.forEach((_, id) => {
+      if (allAppsMap.has(id) && !appIdsToRender.includes(id)) {
+        appIdsToRender.push(id);
+      }
+    });
+
+    bar.innerHTML = appIdsToRender
+      .map((id) => {
+        const app = allAppsMap.get(id);
+        const w = openWindows.get(id);
         const running = Boolean(w);
         const focused = Boolean(w && !w.minimized && w.el.classList.contains('focused'));
         return `
@@ -1046,8 +1139,8 @@ window.GoldenGateOS = (function () {
       .join('');
 
     bar.querySelectorAll('.taskbar-app-btn').forEach((btn) => {
+      const id = btn.dataset.id;
       btn.onclick = () => {
-        const id = btn.dataset.id;
         const w = openWindows.get(id);
         if (!w) {
           launchApp(id);
@@ -1059,6 +1152,12 @@ window.GoldenGateOS = (function () {
         } else {
           focusWindow(id);
         }
+      };
+
+      btn.oncontextmenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openTaskbarContextMenu(id, e.clientX, e.clientY);
       };
     });
   }
@@ -1112,6 +1211,11 @@ window.GoldenGateOS = (function () {
       c.onclick = () => {
         closeOverlays();
         launchApp(c.dataset.id);
+      };
+      c.oncontextmenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openTaskbarContextMenu(c.dataset.id, e.clientX, e.clientY);
       };
     });
   }
@@ -1322,6 +1426,18 @@ window.GoldenGateOS = (function () {
         'hidden',
         !selectedItem || selectedItem.type !== 'shortcut'
       );
+      const isApp = selectedItem && selectedItem.type === 'app';
+      const pinTaskbarItem = document.getElementById('ctx-pin-taskbar');
+      const pinTaskbarLabel = document.getElementById('ctx-pin-taskbar-label');
+      if (pinTaskbarItem) {
+        pinTaskbarItem.classList.toggle('hidden', !isApp);
+        if (isApp) {
+          const appId = selectedItem.appId || selectedItem.id;
+          if (pinTaskbarLabel) {
+            pinTaskbarLabel.textContent = isAppPinned(appId) ? 'Unpin from Taskbar' : 'Pin to Taskbar';
+          }
+        }
+      }
 
       menu.classList.remove('hidden');
       const x = Math.min(window.innerWidth - 230, Math.max(8, e.clientX));
@@ -1342,6 +1458,9 @@ window.GoldenGateOS = (function () {
         else if (act === 'new-website-shortcut') openShortcutModal();
         else if (act === 'open-target' && selectedItem) {
           triggerDesktopItem(selectedItem);
+        } else if (act === 'pin-taskbar' && selectedItem && selectedItem.type === 'app') {
+          const appId = selectedItem.appId || selectedItem.id;
+          togglePinApp(appId);
         } else if (act === 'delete-shortcut' && selectedItem?.type === 'shortcut') {
           removeShortcut(selectedItem.id);
         } else if (act === 'open-wallpaper-local') {
@@ -1385,6 +1504,29 @@ window.GoldenGateOS = (function () {
     document.getElementById('ctx-lgl-frost')?.addEventListener('input', (e) => {
       window.LiquidGLEngine.setState({ frost: Number(e.target.value) });
     });
+
+    const taskbarMenu = document.getElementById('taskbar-context-menu');
+    if (taskbarMenu) {
+      taskbarMenu.addEventListener('click', (e) => e.stopPropagation());
+      document.getElementById('taskbar-ctx-open')?.addEventListener('click', () => {
+        if (taskbarContextAppId) {
+          launchApp(taskbarContextAppId);
+        }
+        closeOverlays();
+      });
+      document.getElementById('taskbar-ctx-pin')?.addEventListener('click', () => {
+        if (taskbarContextAppId) {
+          togglePinApp(taskbarContextAppId);
+        }
+        closeOverlays();
+      });
+      document.getElementById('taskbar-ctx-close')?.addEventListener('click', () => {
+        if (taskbarContextAppId) {
+          closeApp(taskbarContextAppId);
+        }
+        closeOverlays();
+      });
+    }
   }
 
   function openShortcutModal() {
@@ -1394,6 +1536,7 @@ window.GoldenGateOS = (function () {
 
   function closeOverlays() {
     document.getElementById('custom-context-menu')?.classList.add('hidden');
+    document.getElementById('taskbar-context-menu')?.classList.add('hidden');
     document.getElementById('search-flyout')?.classList.add('hidden');
     document.getElementById('start-menu')?.classList.add('hidden');
     document.getElementById('day-flyout')?.classList.add('hidden');
@@ -1690,6 +1833,11 @@ window.GoldenGateOS = (function () {
     pushNotification,
     runTerminalCommand,
     refreshDayAndWeather,
-    showToast
+    showToast,
+    pinApp,
+    unpinApp,
+    togglePinApp,
+    isAppPinned,
+    getPinnedApps: () => [...pinnedAppIds]
   };
 })();

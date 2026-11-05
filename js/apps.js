@@ -786,7 +786,7 @@ window.GoldenGateApps = (function () {
       const body = containerEl.querySelector('#gm-body');
 
       if (sourceMode === 'truffled') {
-        const truffledSrc = toProxyUrl('https://truffled.lol/g');
+        const truffledSrc = 'https://truffled.lol/g';
         body.innerHTML = `
           <div style="display:flex;flex-direction:column;width:100%;height:100%;background:#121e1e;">
             <div style="padding:6px 14px;background:#0c1515;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);border-bottom:1px solid rgba(255,255,255,0.06);">
@@ -800,7 +800,7 @@ window.GoldenGateApps = (function () {
       }
 
       if (sourceMode === 'gn-portal') {
-        const gnSrc = toProxyUrl('https://gn-math.dev/');
+        const gnSrc = 'https://gn-math.dev/';
         body.innerHTML = `
           <div style="display:flex;flex-direction:column;width:100%;height:100%;background:#0d111a;">
             <div style="padding:6px 14px;background:#080b11;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.7);border-bottom:1px solid rgba(255,255,255,0.06);">
