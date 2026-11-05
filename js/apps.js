@@ -1,5 +1,6 @@
 window.GoldenGateApps = (function () {
   const QUICK_SITES = [
+    { title: 'invisiproxy', url: 'https://glowing-fishstick-r79x5gwxqgqc5rvw-8080.app.github.dev/' },
     { title: 'wikipedia', url: 'https://en.wikipedia.org/wiki/Main_Page' },
     { title: 'hackernews', url: 'https://news.ycombinator.com' },
     { title: 'example', url: 'https://example.com' },
