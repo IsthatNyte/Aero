@@ -48,6 +48,11 @@
         // Listen for auth state changes
         client.auth.onAuthStateChange((event, session) => {
           currentUser = session ? session.user : null;
+          if (currentUser) {
+            localStorage.setItem('webos_auth_cached_user', JSON.stringify(currentUser));
+          } else {
+            localStorage.removeItem('webos_auth_cached_user');
+          }
           if (currentUser && currentUser.user_metadata && currentUser.user_metadata.username) {
             currentUsername = currentUser.user_metadata.username;
             localStorage.setItem('webos_account_username', currentUsername);
@@ -85,7 +90,12 @@
   }
 
   function getUser() {
-    return currentUser;
+    if (currentUser) return currentUser;
+    try {
+      const cached = localStorage.getItem('webos_auth_cached_user');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
   }
 
   function getUsername() {
@@ -185,6 +195,7 @@
     currentUser = null;
     currentUsername = '';
     localStorage.removeItem('webos_account_username');
+    localStorage.removeItem('webos_auth_cached_user');
     lastSyncTime = null;
     window.dispatchEvent(new CustomEvent('aero:auth-change', { detail: { event: 'SIGNED_OUT', user: null, username: '' } }));
   }
