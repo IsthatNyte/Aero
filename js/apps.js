@@ -59,7 +59,12 @@ window.GoldenGateApps = (function () {
     if (isLocal) {
       return `/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
-    return targetUrl;
+    const backend = (localStorage.getItem('aero_invisiproxy_url') || '').trim().replace(/\/+$/, '');
+    if (backend) {
+      const fullUrl = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
+      return `${backend}/scramjet/${fullUrl}`;
+    }
+    return '';
   }
 
   // ==========================================================================
@@ -976,7 +981,13 @@ window.GoldenGateApps = (function () {
               </div>
             </form>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-top:14px;">
+            <div style="background:#131824;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+              <span style="font-size:12px;color:#94a3b8;font-weight:600;white-space:nowrap;">InvisiProxy Backend:</span>
+              <input type="text" class="aero-invisi-backend-input" placeholder="e.g. https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || ''}" style="flex:1;background:#0b0f19;border:1px solid rgba(255,255,255,0.12);border-radius:6px;height:32px;padding:0 10px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none;" />
+              <button type="button" class="aero-invisi-backend-save" style="background:#5e50b5;color:#ffffff;border:none;border-radius:6px;padding:0 14px;height:32px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-top:4px;">
               ${QUICK_SITES.map(
                 (s) => `
                 <div style="padding:14px;border-radius:12px;background:#131824;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
@@ -996,12 +1007,7 @@ window.GoldenGateApps = (function () {
           const trimmed = raw.trim();
           if (!trimmed) return;
           const nextUrl = normalizeUrl(trimmed);
-          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-          if (!isLocal) {
-            openInAboutBlank(nextUrl, trimmed);
-          } else {
-            navigateTab(nextUrl, trimmed);
-          }
+          navigateTab(nextUrl, trimmed);
         }
 
         pane.querySelector('.aero-home-search-form')?.addEventListener('submit', (e) => {
@@ -1023,25 +1029,66 @@ window.GoldenGateApps = (function () {
         pane.querySelectorAll('.card-pin').forEach((b) => {
           b.onclick = () => window.GoldenGateOS.addWebsiteShortcut({ title: b.dataset.title, url: b.dataset.url });
         });
+
+        const backendInput = pane.querySelector('.aero-invisi-backend-input');
+        pane.querySelector('.aero-invisi-backend-save')?.addEventListener('click', () => {
+          if (backendInput) {
+            const val = backendInput.value.trim().replace(/\/+$/, '');
+            localStorage.setItem('aero_invisiproxy_url', val);
+            if (window.GoldenGateOS?.showNotification) {
+              window.GoldenGateOS.showNotification('InvisiProxy Backend Saved');
+            }
+          }
+        });
       } else if (tab.url === 'aero://games') {
         pane.innerHTML = '';
         renderGamesSection(pane);
       } else {
         const proxiedSrc = toProxyUrl(tab.url);
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        pane.innerHTML = `
-          <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:#0d111a;">
-            <div style="padding:8px 16px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-              <span style="font-size:12px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;font-family:monospace;">${tab.url}</span>
-              <button class="hel-open-ext-link" style="background:#5e50b5;color:#ffffff;border:none;padding:5px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;">Launch in about:blank &#10140;</button>
+        if (!proxiedSrc && !isLocal) {
+          pane.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;background:#0d111a;padding:32px;text-align:center;box-sizing:border-box;">
+              <div style="max-width:520px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+                <div style="font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:-0.02em;">InvisiProxy Backend Required</div>
+                <div style="font-size:13px;color:#94a3b8;line-height:1.6;">
+                  GitHub Pages cannot proxy web traffic directly. Connect your deployed InvisiProxy instance (running Scramjet/Wisp) to browse inside Aero tabs, or launch directly in an unblocked Google tab.
+                </div>
+                <div style="display:flex;gap:8px;width:100%;margin-top:6px;">
+                  <input type="text" class="tab-invisi-backend-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || ''}" style="flex:1;background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 12px;height:40px;color:#ffffff;font-size:13px;outline:none;font-family:inherit;" />
+                  <button type="button" class="tab-invisi-backend-btn" style="background:#5e50b5;color:#ffffff;border:none;padding:0 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Connect</button>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:6px;">
+                  <button type="button" class="tab-launch-blank-btn" style="background:#1e293b;border:1px solid rgba(255,255,255,0.12);color:#38bdf8;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Launch in about:blank &#10140;</button>
+                </div>
+              </div>
             </div>
-            <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
-          </div>
-        `;
-        pane.querySelector('.hel-open-ext-link')?.addEventListener('click', (e) => {
-          e.preventDefault();
-          openInAboutBlank(tab.url, tab.title);
-        });
+          `;
+          pane.querySelector('.tab-invisi-backend-btn')?.addEventListener('click', () => {
+            const val = pane.querySelector('.tab-invisi-backend-in')?.value.trim().replace(/\/+$/, '') || '';
+            if (val) {
+              localStorage.setItem('aero_invisiproxy_url', val);
+              mountPaneContent(pane, tab);
+            }
+          });
+          pane.querySelector('.tab-launch-blank-btn')?.addEventListener('click', () => {
+            openInAboutBlank(tab.url, tab.title);
+          });
+        } else {
+          pane.innerHTML = `
+            <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:#0d111a;">
+              <div style="padding:8px 16px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                <span style="font-size:12px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;font-family:monospace;">${tab.url}</span>
+                <button class="hel-open-ext-link" style="background:#5e50b5;color:#ffffff;border:none;padding:5px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;">Launch in about:blank &#10140;</button>
+              </div>
+              <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
+            </div>
+          `;
+          pane.querySelector('.hel-open-ext-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            openInAboutBlank(tab.url, tab.title);
+          });
+        }
       }
     }
 
@@ -1147,9 +1194,13 @@ window.GoldenGateApps = (function () {
     };
     function openInAboutBlank(url, title) {
       if (!url || url.startsWith('aero://')) return;
+      const backend = (localStorage.getItem('aero_invisiproxy_url') || '').trim().replace(/\/+$/, '');
+      const fullUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+      const finalSrc = backend ? `${backend}/scramjet/${fullUrl}` : fullUrl;
+
       const win = window.open('about:blank', '_blank');
       if (!win) {
-        window.open(url, '_blank', 'noopener');
+        window.open(finalSrc, '_blank', 'noopener');
         return;
       }
       try {
@@ -1159,11 +1210,26 @@ window.GoldenGateApps = (function () {
         link.rel = 'icon';
         link.href = 'https://www.google.com/favicon.ico';
         doc.head.appendChild(link);
-        setTimeout(() => {
-          win.location.replace(url);
-        }, 120);
+
+        const iframe = doc.createElement('iframe');
+        iframe.src = finalSrc;
+        iframe.style.position = 'fixed';
+        iframe.style.top = '0';
+        iframe.style.left = '0';
+        iframe.style.width = '100vw';
+        iframe.style.height = '100vh';
+        iframe.style.border = 'none';
+        iframe.style.margin = '0';
+        iframe.style.padding = '0';
+        iframe.setAttribute('allow', 'fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write');
+
+        doc.body.style.margin = '0';
+        doc.body.style.padding = '0';
+        doc.body.style.height = '100vh';
+        doc.body.style.overflow = 'hidden';
+        doc.body.appendChild(iframe);
       } catch (err) {
-        win.location.href = url;
+        win.location.href = finalSrc;
       }
     }
     bodyEl.querySelector('#hel-ext-btn').onclick = () => {
