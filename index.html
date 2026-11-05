@@ -382,23 +382,36 @@
   <script src="uv/uv.bundle.js"></script>
   <script src="uv/uv.config.js"></script>
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+    window.uvReadyPromise = new Promise((resolve) => {
+      if ('serviceWorker' in navigator) {
         const isAero = window.location.pathname.startsWith('/Aero');
         const swPath = isAero ? '/Aero/sw.js' : '/sw.js';
         const swScope = isAero ? '/Aero/' : '/';
-        navigator.serviceWorker.register(swPath, { scope: swScope }).catch((err) => {
-          console.warn('UV Service Worker registration failed:', err);
-        });
-      });
-    }
+        navigator.serviceWorker.register(swPath, { scope: swScope })
+          .then(() => navigator.serviceWorker.ready)
+          .then(() => {
+            if (!navigator.serviceWorker.controller) {
+              navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+              setTimeout(resolve, 800);
+            } else {
+              resolve();
+            }
+          })
+          .catch((err) => {
+            console.warn('UV Service Worker registration failed:', err);
+            resolve();
+          });
+      } else {
+        resolve();
+      }
+    });
   </script>
-  <script src="js/icons.js?v=4.6"></script>
-  <script src="js/auth.js?v=4.6"></script>
-  <script src="js/liquidgl.js?v=4.6"></script>
-  <script src="js/music.js?v=4.6"></script>
-  <script src="js/apps.js?v=4.6"></script>
-  <script src="js/droplet.js?v=4.6"></script>
-  <script src="js/os.js?v=4.6"></script>
+  <script src="js/icons.js?v=4.7"></script>
+  <script src="js/auth.js?v=4.7"></script>
+  <script src="js/liquidgl.js?v=4.7"></script>
+  <script src="js/music.js?v=4.7"></script>
+  <script src="js/apps.js?v=4.7"></script>
+  <script src="js/droplet.js?v=4.7"></script>
+  <script src="js/os.js?v=4.7"></script>
 </body>
 </html>

@@ -1033,9 +1033,17 @@ window.GoldenGateApps = (function () {
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">${tab.url}</span>
               <button class="hel-open-ext-link" style="background:transparent;border:none;color:#38bdf8;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;font-size:11px;font-family:inherit;padding:0;">Open tab &#8599;</button>
             </div>
-            <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
+            <iframe class="aero-iframe" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
           </div>
         `;
+        const iframeEl = pane.querySelector('.aero-iframe');
+        if (window.uvReadyPromise) {
+          window.uvReadyPromise.then(() => {
+            if (iframeEl) iframeEl.src = proxiedSrc;
+          });
+        } else {
+          if (iframeEl) iframeEl.src = proxiedSrc;
+        }
         pane.querySelector('.hel-open-ext-link')?.addEventListener('click', (e) => {
           e.preventDefault();
           openInAboutBlank(tab.url, tab.title);
