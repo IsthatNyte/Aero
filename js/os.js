@@ -765,6 +765,74 @@ window.GoldenGateOS = (function () {
     return true;
   }
 
+  function minimizeAllWindows() {
+    let count = 0;
+    openWindows.forEach((rec) => {
+      if (!rec.minimized) {
+        rec.minimized = true;
+        rec.el.classList.add('minimized');
+        rec.el.classList.remove('focused');
+        count++;
+      }
+    });
+    renderTaskbarApps();
+    return count;
+  }
+
+  function restoreAllWindows() {
+    let count = 0;
+    openWindows.forEach((rec) => {
+      if (rec.minimized) {
+        rec.minimized = false;
+        rec.el.classList.remove('minimized');
+        count++;
+      }
+    });
+    renderTaskbarApps();
+    return count;
+  }
+
+  function closeAllWindows() {
+    const ids = Array.from(openWindows.keys());
+    ids.forEach((id) => closeApp(id));
+    return ids.length;
+  }
+
+  function cascadeWindows() {
+    let offset = 40;
+    openWindows.forEach((rec) => {
+      rec.minimized = false;
+      rec.el.classList.remove('minimized');
+      rec.el.style.left = `${offset}px`;
+      rec.el.style.top = `${offset}px`;
+      rec.el.style.zIndex = ++topZ;
+      offset += 32;
+    });
+    renderTaskbarApps();
+    return openWindows.size;
+  }
+
+  function takeScreenshot() {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '22px sans-serif';
+      ctx.fillText(`AeroOS Screenshot - ${new Date().toLocaleString()}`, 40, 80);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `aero-screenshot-${Date.now()}.png`;
+      a.click();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function applyWindowSpringTransition(winEl) {
     winEl.classList.add('spring-geom');
     setTimeout(() => winEl.classList.remove('spring-geom'), 420);
@@ -1785,6 +1853,11 @@ window.GoldenGateOS = (function () {
   return {
     launchApp,
     closeApp,
+    minimizeAllWindows,
+    restoreAllWindows,
+    closeAllWindows,
+    cascadeWindows,
+    takeScreenshot,
     focusWindow,
     openUrlInBrowser,
     addWebsiteShortcut,

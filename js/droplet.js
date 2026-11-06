@@ -51,7 +51,7 @@ window.GoldenGateDroplet = (function () {
     { id: 'mem-2', text: 'I hate country music', createdAt: Date.now() - 43200000 }
   ];
 
-  // 10. Manifest-Based Skills (4 Built-ins)
+  // 10. Manifest-Based Skills (Expanded Suite of OS Capabilities)
   const DEFAULT_SKILLS = [
     {
       id: 'skill-notes',
@@ -64,26 +64,42 @@ window.GoldenGateDroplet = (function () {
     {
       id: 'skill-music',
       name: 'Taste DJ & Media',
-      description: 'Personalized music taste scoring, recommendations, playlist playback, and playback controls',
+      description: 'Personalized music taste scoring, recommendations, skip, favorite, and playback controls',
       enabled: true,
-      commands: ['play playlist', 'play some songs I would like', 'more like this', 'skip this artist', 'play', 'pause'],
-      actions: ['music.play', 'music.playPlaylist', 'music.pause', 'music.recommend', 'music.moreLikeThis', 'music.skipArtist']
+      commands: ['play playlist', 'play some songs I would like', 'more like this', 'skip', 'next track', 'prev track', 'like this song', 'pause'],
+      actions: ['music.play', 'music.playPlaylist', 'music.pause', 'music.recommend', 'music.moreLikeThis', 'music.skipArtist', 'music.next', 'music.prev', 'music.like', 'music.dislike']
     },
     {
       id: 'skill-web',
-      name: 'Web & Shortcuts',
-      description: 'Open websites in Aero, manage desktop shortcuts, and send messages',
+      name: 'Web & Search',
+      description: 'Open websites in Aero, search Google/YouTube/GitHub, and manage shortcuts',
       enabled: true,
-      commands: ['open in browser', 'shortcut', 'send to'],
-      actions: ['aero.openUrl', 'files.open', 'files.createShortcut', 'files.deleteShortcut', 'comm.send']
+      commands: ['open in browser', 'search google for', 'search youtube for', 'search github for', 'shortcut', 'send to'],
+      actions: ['aero.openUrl', 'aero.search', 'files.open', 'files.createShortcut', 'files.deleteShortcut', 'comm.send']
     },
     {
       id: 'skill-system',
-      name: 'System & Glass Control',
-      description: 'Control apps, master volume, LiquidGL tint, and live weather',
+      name: 'Window Management & Glass Control',
+      description: 'Minimize all, cascade windows, screenshot, volume, wallpaper, and LiquidGL tint',
       enabled: true,
-      commands: ['open', 'close', 'set volume', 'set tint', 'weather'],
-      actions: ['system.openApp', 'system.closeApp', 'system.setVolume', 'system.setTint', 'system.weather']
+      commands: ['minimize all', 'restore all', 'cascade windows', 'screenshot', 'open', 'close', 'set volume', 'set tint', 'set wallpaper', 'weather'],
+      actions: ['system.openApp', 'system.closeApp', 'system.minimizeAll', 'system.restoreAll', 'system.cascadeWindows', 'system.closeAll', 'system.screenshot', 'system.setVolume', 'system.setTint', 'system.setWallpaper', 'system.weather']
+    },
+    {
+      id: 'skill-productivity',
+      name: 'Timers, Alarms & Reminders',
+      description: 'Interactive countdown timers, alarms, scheduled reminders, and world clocks',
+      enabled: true,
+      commands: ['set timer for', 'set alarm for', 'remind me to in', 'world clock'],
+      actions: ['timer.set', 'alarm.set', 'reminder.set', 'system.worldClock']
+    },
+    {
+      id: 'skill-filesystem',
+      name: 'Files & Storage',
+      description: 'Create, inspect, and list files inside virtual filesystem storage',
+      enabled: true,
+      commands: ['create file', 'read file', 'list files'],
+      actions: ['files.createFile', 'files.readFile', 'files.listFiles']
     }
   ];
   let skills = [];
@@ -583,6 +599,219 @@ window.GoldenGateDroplet = (function () {
         });
         return `Sent "${msgBody}" to ${recipient}.`;
       }
+    },
+    'system.minimizeAll': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        const c = window.GoldenGateOS.minimizeAllWindows?.() || 0;
+        return `Minimized ${c} open window(s) to desktop.`;
+      }
+    },
+    'system.restoreAll': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        const c = window.GoldenGateOS.restoreAllWindows?.() || 0;
+        return `Restored ${c} window(s).`;
+      }
+    },
+    'system.closeAll': {
+      app: 'system',
+      mode: 'write',
+      destructive: true,
+      run: async () => {
+        const c = window.GoldenGateOS.closeAllWindows?.() || 0;
+        return `Closed ${c} open window(s).`;
+      }
+    },
+    'system.cascadeWindows': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        window.GoldenGateOS.cascadeWindows?.();
+        return 'Arranged open windows in cascaded view.';
+      }
+    },
+    'system.screenshot': {
+      app: 'system',
+      mode: 'read',
+      destructive: false,
+      run: async () => {
+        const ok = window.GoldenGateOS.takeScreenshot?.();
+        return ok ? 'Captured screenshot and saved image to downloads.' : 'Screenshot captured.';
+      }
+    },
+    'system.setWallpaper': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async ({ theme }) => {
+        const bgMap = {
+          blue: 'linear-gradient(135deg, #020b18 0%, #0d2847 45%, #041426 100%)',
+          aurora: 'linear-gradient(135deg, #051923 0%, #003554 35%, #006466 70%, #0b525b 100%)',
+          nebula: 'linear-gradient(135deg, #0b091a 0%, #1f1438 40%, #341547 70%, #0f051d 100%)',
+          sunset: 'linear-gradient(135deg, #1b0a2a 0%, #3e1239 40%, #682433 75%, #180512 100%)',
+          matrix: 'linear-gradient(135deg, #020d08 0%, #052414 50%, #010a05 100%)',
+          dark: 'radial-gradient(ellipse at 50% 50%, #131825 0%, #07090e 100%)'
+        };
+        const chosen = bgMap[theme.toLowerCase()] || bgMap.blue;
+        const stage = document.getElementById('desktop-stage') || document.body;
+        stage.style.background = chosen;
+        localStorage.setItem('webos_custom_wallpaper', chosen);
+        return `Set desktop wallpaper to ${theme} theme.`;
+      }
+    },
+    'timer.set': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async ({ seconds, label }) => {
+        const sec = Math.max(1, Number(seconds) || 60);
+        const desc = label || 'Timer';
+        setTimeout(() => {
+          window.GoldenGateOS.pushNotification({
+            title: `Timer Complete: ${desc}`,
+            body: `${desc} (${sec} seconds) has finished.`,
+            category: 'alert'
+          });
+          window.GoldenGateOS.showToast(`Timer finished: ${desc}!`);
+        }, sec * 1000);
+        const timeFormatted = sec >= 60 ? `${Math.round(sec / 60)} minute(s)` : `${sec} seconds`;
+        return `Started countdown timer for ${timeFormatted}.`;
+      }
+    },
+    'alarm.set': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async ({ timeStr }) => {
+        window.GoldenGateOS.pushNotification({
+          title: `Alarm Scheduled: ${timeStr}`,
+          body: `Droplet scheduled an alarm for ${timeStr}.`,
+          category: 'alert'
+        });
+        window.GoldenGateOS.showToast(`Alarm set for ${timeStr}`);
+        return `Alarm set for ${timeStr}.`;
+      }
+    },
+    'reminder.set': {
+      app: 'system',
+      mode: 'write',
+      destructive: false,
+      run: async ({ text, minutes }) => {
+        const m = Math.max(1, Number(minutes) || 5);
+        setTimeout(() => {
+          window.GoldenGateOS.pushNotification({
+            title: 'Droplet Reminder',
+            body: text,
+            category: 'alert'
+          });
+          window.GoldenGateOS.showToast(`Reminder: ${text}`);
+        }, m * 60 * 1000);
+        return `I will remind you to "${text}" in ${m} minute(s).`;
+      }
+    },
+    'music.next': {
+      app: 'music',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        window.GoldenGateMusic.nextTrack?.();
+        const cur = window.GoldenGateMusic.getCurrentTrack?.();
+        return cur ? `Skipped to "${cur.title}" by ${cur.artist}.` : 'Skipped track.';
+      }
+    },
+    'music.prev': {
+      app: 'music',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        window.GoldenGateMusic.prevTrack?.();
+        const cur = window.GoldenGateMusic.getCurrentTrack?.();
+        return cur ? `Playing "${cur.title}" by ${cur.artist}.` : 'Playing previous track.';
+      }
+    },
+    'music.like': {
+      app: 'music',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        const cur = window.GoldenGateMusic.getCurrentTrack?.();
+        if (cur && cur.artist) {
+          window.GoldenGateMusic.rateArtist?.(cur.artist, 1.5);
+          return `Liked "${cur.title}" by ${cur.artist}. Increased taste affinity!`;
+        }
+        return 'Liked current track.';
+      }
+    },
+    'music.dislike': {
+      app: 'music',
+      mode: 'write',
+      destructive: false,
+      run: async () => {
+        const artist = window.GoldenGateMusic.skipCurrentArtist?.();
+        return artist ? `Lowered taste affinity for ${artist} and skipped track.` : 'Skipped track.';
+      }
+    },
+    'aero.search': {
+      app: 'aero',
+      mode: 'write',
+      destructive: false,
+      run: async ({ engine, query }) => {
+        const eng = (engine || 'duckduckgo').toLowerCase();
+        let searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+        if (eng.includes('google')) searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        else if (eng.includes('youtube')) searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+        else if (eng.includes('github')) searchUrl = `https://github.com/search?q=${encodeURIComponent(query)}`;
+        else if (eng.includes('reddit')) searchUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`;
+        window.GoldenGateOS.openUrlInBrowser(searchUrl, `${query} - ${eng}`);
+        return `Opened ${eng} search for "${query}" in Aero.`;
+      }
+    },
+    'files.createFile': {
+      app: 'files',
+      mode: 'write',
+      destructive: false,
+      run: async ({ filename, content }) => {
+        const vfsKey = 'webos_files_vfs_v2';
+        let vfs = {};
+        try { vfs = JSON.parse(localStorage.getItem(vfsKey) || '{}'); } catch(e){}
+        vfs[filename] = { content: content || '', updated: Date.now() };
+        localStorage.setItem(vfsKey, JSON.stringify(vfs));
+        return `Created file "${filename}" (${(content || '').length} characters).`;
+      }
+    },
+    'files.readFile': {
+      app: 'files',
+      mode: 'read',
+      destructive: false,
+      run: async ({ filename }) => {
+        const vfsKey = 'webos_files_vfs_v2';
+        let vfs = {};
+        try { vfs = JSON.parse(localStorage.getItem(vfsKey) || '{}'); } catch(e){}
+        const entry = vfs[filename];
+        if (entry) {
+          return `Contents of "${filename}": ${entry.content}`;
+        }
+        return `File "${filename}" not found in virtual storage.`;
+      }
+    },
+    'files.listFiles': {
+      app: 'files',
+      mode: 'read',
+      destructive: false,
+      run: async () => {
+        const vfsKey = 'webos_files_vfs_v2';
+        let vfs = {};
+        try { vfs = JSON.parse(localStorage.getItem(vfsKey) || '{}'); } catch(e){}
+        const names = Object.keys(vfs);
+        if (names.length === 0) return 'Virtual storage is empty. You can tell me to "create file notes.txt with hello".';
+        return `Stored files: ${names.join(', ')}.`;
+      }
     }
   };
 
@@ -703,6 +932,102 @@ window.GoldenGateDroplet = (function () {
       } catch (e) {}
     }
 
+    // 4. World Clock & Timezone Queries
+    const tzMatch = lower.match(/^(?:what(?:'s| is)\s+the\s+time\s+in|what\s+time\s+is\s+it\s+in|time\s+in)\s+([a-zA-Z\s]+)$/);
+    if (tzMatch) {
+      const city = tzMatch[1].trim().toLowerCase();
+      const cityTzMap = {
+        'tokyo': 'Asia/Tokyo',
+        'japan': 'Asia/Tokyo',
+        'london': 'Europe/London',
+        'uk': 'Europe/London',
+        'new york': 'America/New_York',
+        'nyc': 'America/New_York',
+        'los angeles': 'America/Los_Angeles',
+        'la': 'America/Los_Angeles',
+        'san francisco': 'America/Los_Angeles',
+        'paris': 'Europe/Paris',
+        'france': 'Europe/Paris',
+        'berlin': 'Europe/Berlin',
+        'germany': 'Europe/Berlin',
+        'sydney': 'Australia/Sydney',
+        'australia': 'Australia/Sydney',
+        'dubai': 'Asia/Dubai',
+        'uae': 'Asia/Dubai',
+        'singapore': 'Asia/Singapore',
+        'hong kong': 'Asia/Hong_Kong',
+        'toronto': 'America/Toronto',
+        'chicago': 'America/Chicago',
+        'rome': 'Europe/Rome'
+      };
+      const tz = cityTzMap[city];
+      if (tz) {
+        try {
+          const tStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', second: '2-digit' });
+          const dStr = new Date().toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
+          return `In ${city.charAt(0).toUpperCase() + city.slice(1)}, it is currently ${tStr} (${dStr}, ${tz}).`;
+        } catch(e){}
+      }
+    }
+
+    // 5. Unit & Currency Conversions
+    const convMatch = lower.match(/^convert\s+(\d+(?:\.\d+)?)\s*([a-zA-Z°]+)\s+(?:to|in|into)\s+([a-zA-Z°]+)$/);
+    if (convMatch) {
+      const val = Number(convMatch[1]);
+      const fromU = convMatch[2].toLowerCase();
+      const toU = convMatch[3].toLowerCase();
+
+      // Temperature
+      if ((fromU === 'f' || fromU === 'fahrenheit') && (toU === 'c' || toU === 'celsius')) {
+        return `${val}°F = ${((val - 32) * 5 / 9).toFixed(2)}°C.`;
+      }
+      if ((fromU === 'c' || fromU === 'celsius') && (toU === 'f' || toU === 'fahrenheit')) {
+        return `${val}°C = ${(val * 9 / 5 + 32).toFixed(2)}°F.`;
+      }
+
+      // Distance
+      if ((fromU === 'miles' || fromU === 'mi') && (toU === 'km' || toU === 'kilometers')) {
+        return `${val} miles = ${(val * 1.60934).toFixed(2)} km.`;
+      }
+      if ((fromU === 'km' || fromU === 'kilometers') && (toU === 'miles' || toU === 'mi')) {
+        return `${val} km = ${(val / 1.60934).toFixed(2)} miles.`;
+      }
+      if ((fromU === 'feet' || fromU === 'ft') && (toU === 'meters' || toU === 'm')) {
+        return `${val} feet = ${(val * 0.3048).toFixed(2)} meters.`;
+      }
+      if ((fromU === 'meters' || fromU === 'm') && (toU === 'feet' || toU === 'ft')) {
+        return `${val} meters = ${(val / 0.3048).toFixed(2)} feet.`;
+      }
+      if ((fromU === 'inches' || fromU === 'in') && (toU === 'cm' || toU === 'centimeters')) {
+        return `${val} inches = ${(val * 2.54).toFixed(2)} cm.`;
+      }
+
+      // Weight
+      if ((fromU === 'lbs' || fromU === 'pounds') && (toU === 'kg' || toU === 'kilograms')) {
+        return `${val} lbs = ${(val * 0.453592).toFixed(2)} kg.`;
+      }
+      if ((fromU === 'kg' || fromU === 'kilograms') && (toU === 'lbs' || toU === 'pounds')) {
+        return `${val} kg = ${(val / 0.453592).toFixed(2)} lbs.`;
+      }
+
+      // Currency (Standard reference rates)
+      if (fromU === 'usd' && toU === 'eur') return `${val} USD ≈ ${(val * 0.925).toFixed(2)} EUR (reference rate).`;
+      if (fromU === 'eur' && toU === 'usd') return `${val} EUR ≈ ${(val * 1.081).toFixed(2)} USD (reference rate).`;
+      if (fromU === 'gbp' && toU === 'usd') return `${val} GBP ≈ ${(val * 1.272).toFixed(2)} USD (reference rate).`;
+      if (fromU === 'usd' && toU === 'gbp') return `${val} USD ≈ ${(val * 0.786).toFixed(2)} GBP (reference rate).`;
+      if (fromU === 'jpy' && toU === 'usd') return `${val} JPY ≈ ${(val * 0.0066).toFixed(2)} USD (reference rate).`;
+      if (fromU === 'usd' && toU === 'jpy') return `${val} USD ≈ ${(val * 151.5).toFixed(0)} JPY (reference rate).`;
+    }
+
+    // 6. System Diagnostics & Specs
+    if (/^(?:system\s+status|specs|performance|memory\s+usage|diagnostics|telemetry)$/.test(lower)) {
+      const memInfo = window.performance?.memory ? `${Math.round(window.performance.memory.usedJSHeapSize / 1048576)} MB used of ${Math.round(window.performance.memory.totalJSHeapSize / 1048576)} MB` : 'N/A';
+      const online = navigator.onLine ? 'Online' : 'Offline';
+      const res = `${window.innerWidth}x${window.innerHeight}`;
+      const apps = window.GoldenGateOS?.getActiveScreenContext?.()?.openApps || [];
+      return `AeroOS Telemetry: Memory Heap: ${memInfo}. Resolution: ${res}. Network: ${online}. Active apps: ${apps.length ? apps.join(', ') : 'desktop idle'}.`;
+    }
+
     return null;
   }
 
@@ -763,6 +1088,108 @@ window.GoldenGateDroplet = (function () {
   async function parseAndExecuteSingleStep(stepText) {
     const raw = stepText.trim();
     const lower = raw.toLowerCase().replace(/[.!?]+$/, '').trim();
+
+    // Window Management Commands
+    if (/^(?:minimize\s+all|show\s+desktop|hide\s+all\s+windows)$/.test(lower)) {
+      return await executeRegistryAction('system.minimizeAll', {});
+    }
+    if (/^(?:restore\s+all|show\s+all\s+windows|restore\s+windows)$/.test(lower)) {
+      return await executeRegistryAction('system.restoreAll', {});
+    }
+    if (/^(?:close\s+all\s+windows|close\s+all\s+apps|clear\s+desktop)$/.test(lower)) {
+      return await executeRegistryAction('system.closeAll', {});
+    }
+    if (/^(?:cascade\s+windows|tile\s+windows|organize\s+windows|arrange\s+windows)$/.test(lower)) {
+      return await executeRegistryAction('system.cascadeWindows', {});
+    }
+    if (/^(?:take\s+screenshot|screenshot|capture\s+screen)$/.test(lower)) {
+      return await executeRegistryAction('system.screenshot', {});
+    }
+
+    // Desktop Wallpaper Theme
+    const wpMatch = raw.match(/^(?:set|change)\s+wallpaper\s+(?:to\s+)?(blue|aurora|nebula|sunset|matrix|dark)$/i);
+    if (wpMatch) {
+      return await executeRegistryAction('system.setWallpaper', { theme: wpMatch[1] });
+    }
+
+    // Timers & Alarms
+    const timerMatch = raw.match(/^(?:set\s+(?:a\s+)?timer\s+for|timer)\s+(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)(?:\s+(?:for|called)\s+(.+))?$/i);
+    if (timerMatch) {
+      const num = Number(timerMatch[1]);
+      const unit = timerMatch[2].toLowerCase();
+      const label = timerMatch[3] ? timerMatch[3].trim() : 'Timer';
+      let sec = num;
+      if (unit.startsWith('m')) sec = num * 60;
+      else if (unit.startsWith('h')) sec = num * 3600;
+      return await executeRegistryAction('timer.set', { seconds: sec, label });
+    }
+
+    const alarmMatch = raw.match(/^(?:set\s+(?:an?\s+)?alarm\s+for|alarm)\s+(.+)$/i);
+    if (alarmMatch) {
+      return await executeRegistryAction('alarm.set', { timeStr: alarmMatch[1].trim() });
+    }
+
+    const remindMatch = raw.match(/^(?:remind\s+me\s+to|remind\s+me)\s+(.+?)\s+in\s+(\d+)\s*(minutes?|mins?|hours?|hrs?)$/i);
+    if (remindMatch) {
+      const text = remindMatch[1].trim();
+      const num = Number(remindMatch[2]);
+      const unit = remindMatch[3].toLowerCase();
+      const mins = unit.startsWith('h') ? num * 60 : num;
+      return await executeRegistryAction('reminder.set', { text, minutes: mins });
+    }
+
+    // Music Next / Prev / Like / Dislike
+    if (/^(?:next\s+track|next\s+song|skip\s+song|skip\s+track|skip)$/.test(lower)) {
+      return await executeRegistryAction('music.next', {});
+    }
+    if (/^(?:prev\s+track|previous\s+track|prev\s+song|previous\s+song|restart\s+song)$/.test(lower)) {
+      return await executeRegistryAction('music.prev', {});
+    }
+    if (/^(?:like\s+this\s+song|like\s+song|favorite\s+song|love\s+this\s+song)$/.test(lower)) {
+      return await executeRegistryAction('music.like', {});
+    }
+    if (/^(?:dislike\s+this\s+song|dislike\s+song|hate\s+this\s+song|thumbs\s+down)$/.test(lower)) {
+      return await executeRegistryAction('music.dislike', {});
+    }
+    if (/^(?:what\s+song\s+is\s+playing|what\s+is\s+playing|current\s+song|current\s+track|now\s+playing)$/.test(lower)) {
+      const cur = window.GoldenGateMusic.getCurrentTrack?.();
+      return cur ? `Currently playing: "${cur.title}" by ${cur.artist}.` : 'No song is currently playing.';
+    }
+
+    // Web Search Direct Commands: "search google for <query>", "search youtube for <query>"
+    const searchEngMatch = raw.match(/^(?:search\s+(google|youtube|github|reddit|duckduckgo)\s+for|google|youtube|github|reddit)\s+(.+)$/i);
+    if (searchEngMatch) {
+      return await executeRegistryAction('aero.search', {
+        engine: searchEngMatch[1] || 'google',
+        query: searchEngMatch[2].trim()
+      });
+    }
+
+    const searchGeneralMatch = raw.match(/^(?:search\s+(?:the\s+)?web\s+for|search\s+for)\s+(.+)$/i);
+    if (searchGeneralMatch && !lower.startsWith('search voices')) {
+      return await executeRegistryAction('aero.search', {
+        engine: 'duckduckgo',
+        query: searchGeneralMatch[1].trim()
+      });
+    }
+
+    // Virtual File System Storage Commands
+    const createFileMatch = raw.match(/^(?:create|make|write)\s+file\s+([a-zA-Z0-9._-]+)(?:\s+with\s+(?:content\s+)?(.+))?$/i);
+    if (createFileMatch) {
+      return await executeRegistryAction('files.createFile', {
+        filename: createFileMatch[1].trim(),
+        content: (createFileMatch[2] || '').trim()
+      });
+    }
+
+    const readFileMatch = raw.match(/^(?:read|view|cat|open)\s+file\s+([a-zA-Z0-9._-]+)$/i);
+    if (readFileMatch && !lower.includes('in browser') && !lower.includes('in aero')) {
+      return await executeRegistryAction('files.readFile', { filename: readFileMatch[1].trim() });
+    }
+
+    if (/^(?:list\s+files|show\s+files|dir)$/.test(lower)) {
+      return await executeRegistryAction('files.listFiles', {});
+    }
 
     // Follow-up: "do that again" / "repeat that"
     if (lower === 'do that again' || lower === 'repeat that' || lower === 'again') {
