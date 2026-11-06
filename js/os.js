@@ -50,54 +50,8 @@ window.GoldenGateOS = (function () {
   }
 
   function buildDefaultDesktopItems() {
-    const apps = window.GoldenGateApps.getApps();
-    const items = [];
-    let col = 0;
-    let row = 0;
-
-    function nextPos() {
-      const x = 20 + col * 96;
-      const y = 20 + row * 104;
-      row++;
-      if (row >= 5) {
-        row = 0;
-        col++;
-      }
-      return { x, y };
-    }
-
-    apps.forEach((a) => {
-      const pos = nextPos();
-      items.push({
-        id: `app-${a.id}`,
-        type: 'app',
-        appId: a.id,
-        icon: a.icon,
-        title: a.title,
-        x: pos.x,
-        y: pos.y
-      });
-    });
-
-    const defaultShortcuts = [
-      { id: 'sc-wiki', title: 'wikipedia', url: 'https://en.wikipedia.org/wiki/Main_Page' },
-      { id: 'sc-hn', title: 'hackernews', url: 'https://news.ycombinator.com' }
-    ];
-
-    defaultShortcuts.forEach((sc) => {
-      const pos = nextPos();
-      items.push({
-        id: sc.id,
-        type: 'shortcut',
-        title: sc.title,
-        url: sc.url,
-        logoDataUrl: '',
-        x: pos.x,
-        y: pos.y
-      });
-    });
-
-    return items;
+    // Apps do not show on desktop; they are only accessed via taskbar
+    return [];
   }
 
   window.addEventListener('desktop:reload', () => {
@@ -110,35 +64,14 @@ window.GoldenGateOS = (function () {
       const raw = localStorage.getItem(DESKTOP_STORAGE_KEY);
       if (raw) {
         desktopItems = JSON.parse(raw);
-        // Ensure all defined apps exist on desktop or inside a group
-        const existingAppIds = new Set();
-        desktopItems.forEach((it) => {
-          if (it.type === 'app') existingAppIds.add(it.appId);
-          if (it.type === 'group' && Array.isArray(it.items)) {
-            it.items.forEach((c) => {
-              if (c.type === 'app') existingAppIds.add(c.appId);
-            });
-          }
-        });
-        window.GoldenGateApps.getApps().forEach((a) => {
-          if (!existingAppIds.has(a.id)) {
-            const count = desktopItems.length;
-            desktopItems.push({
-              id: `app-${a.id}`,
-              type: 'app',
-              appId: a.id,
-              icon: a.icon,
-              title: a.title,
-              x: 20 + Math.floor(count / 5) * 96,
-              y: 20 + (count % 5) * 104
-            });
-          }
-        });
+        // User requested: do NOT show apps on the desktop. They should only be accessed through the taskbar.
+        // Also remove legacy shortcuts to wikipedia and hackernews.
+        desktopItems = desktopItems.filter((it) => it.type !== 'app' && it.id !== 'sc-wiki' && it.id !== 'sc-hn');
       } else {
-        desktopItems = buildDefaultDesktopItems();
+        desktopItems = [];
       }
     } catch (e) {
-      desktopItems = buildDefaultDesktopItems();
+      desktopItems = [];
     }
   }
 
@@ -173,7 +106,7 @@ window.GoldenGateOS = (function () {
       notifications = [
         {
           id: 'notif-welcome',
-          title: 'GoldenGate OS Ready',
+          title: 'AeroOS Ready',
           body: 'Press Alt to summon Droplet Assistant or Win+Space for Search.',
           category: 'system',
           time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -1035,13 +968,18 @@ window.GoldenGateOS = (function () {
   // Taskbar Pinning & Dynamic App Dock
   // ==========================================================================
   const TASKBAR_PINNED_STORAGE_KEY = 'webos_taskbar_pinned_v3';
-  let pinnedAppIds = ['aero', 'music', 'games', 'account'];
+  const DEFAULT_PINNED_APPS = ['aero', 'music', 'games', 'code', 'files', 'wallpaper', 'terminal', 'monitor', 'account'];
+  const REMOVED_APPS = new Set(['photos', 'notes', 'calc', 'glass']);
+  let pinnedAppIds = [...DEFAULT_PINNED_APPS];
   try {
     const rawPinned = localStorage.getItem(TASKBAR_PINNED_STORAGE_KEY);
     if (rawPinned) {
       const parsed = JSON.parse(rawPinned);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        pinnedAppIds = parsed;
+        pinnedAppIds = parsed.filter(id => !REMOVED_APPS.has(id));
+        DEFAULT_PINNED_APPS.forEach(id => {
+          if (!pinnedAppIds.includes(id)) pinnedAppIds.push(id);
+        });
       }
     }
   } catch (e) {}

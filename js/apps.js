@@ -1,25 +1,24 @@
 window.GoldenGateApps = (function () {
   const QUICK_SITES = [
-    { title: 'wikipedia', url: 'https://en.wikipedia.org/wiki/Main_Page' },
-    { title: 'hackernews', url: 'https://news.ycombinator.com' },
-    { title: 'duckduckgo', url: 'https://duckduckgo.com' },
-    { title: 'games', url: 'aero://games' }
+    { title: 'DuckDuckGo', url: 'https://duckduckgo.com', color: '#de5833' },
+    { title: 'Google', url: 'https://www.google.com', color: '#4285f4' },
+    { title: 'YouTube', url: 'https://youtube.com', color: '#ff0000' },
+    { title: 'Reddit', url: 'https://reddit.com', color: '#ff4500' },
+    { title: 'GitHub', url: 'https://github.com', color: '#24292e' },
+    { title: 'Discord', url: 'https://discord.com', color: '#5865f2' },
+    { title: 'Games', url: 'aero://games', color: '#10b981' }
   ];
 
   const APP_DEFINITIONS = [
-    { id: 'aero', title: 'aero', icon: 'aero', width: 920, height: 560, pinned: true },
+    { id: 'aero', title: 'aero', icon: 'aero', width: 960, height: 600, pinned: true },
     { id: 'music', title: 'music', icon: 'music', width: 940, height: 580, pinned: true },
-    { id: 'account', title: 'account', icon: 'account', width: 440, height: 520, pinned: true },
     { id: 'games', title: 'games', icon: 'games', width: 880, height: 540, pinned: true },
     { id: 'code', title: 'code', icon: 'code', width: 820, height: 520, pinned: true },
-    { id: 'monitor', title: 'monitor', icon: 'monitor', width: 620, height: 440, pinned: true },
-    { id: 'photos', title: 'photos', icon: 'photos', width: 760, height: 520, pinned: true },
     { id: 'files', title: 'files', icon: 'files', width: 580, height: 400, pinned: true },
     { id: 'wallpaper', title: 'wallpaper', icon: 'wallpaper', width: 640, height: 460, pinned: true },
-    { id: 'glass', title: 'glass', icon: 'glass', width: 460, height: 360, pinned: true },
-    { id: 'notes', title: 'notes', icon: 'notes', width: 500, height: 380, pinned: true },
     { id: 'terminal', title: 'terminal', icon: 'terminal', width: 560, height: 380, pinned: true },
-    { id: 'calc', title: 'calc', icon: 'calc', width: 300, height: 400, pinned: true }
+    { id: 'monitor', title: 'monitor', icon: 'monitor', width: 620, height: 440, pinned: true },
+    { id: 'account', title: 'account', icon: 'account', width: 440, height: 520, pinned: true }
   ];
 
   // Shared Games Catalog Cache (Fetched from gn-math/assets zones.json using raw.githubusercontent.com)
@@ -917,14 +916,16 @@ window.GoldenGateApps = (function () {
   }
 
   // ==========================================================================
-  // 3. aero (Clean Browser UI with Local Proxy Route & Smooth Tab Crossfades)
+  // 3. aero (Modern Premium Web Browser with Horizontal Tabs & InvisiProxy)
   // ==========================================================================
   function renderAero(bodyEl, options = {}) {
     let tabs = [
       {
         id: 'vt-1',
-        title: 'home',
-        url: 'aero://home'
+        title: 'Home',
+        url: 'aero://home',
+        history: ['aero://home'],
+        historyIdx: 0
       }
     ];
     let activeTabId = 'vt-1';
@@ -950,7 +951,8 @@ window.GoldenGateApps = (function () {
     }
 
     function getShortTitle(url) {
-      if (url.startsWith('aero://')) return url.replace('aero://', '');
+      if (!url || url === 'aero://home') return 'Home';
+      if (url === 'aero://games') return 'Games';
       try {
         const u = new URL(url);
         if (u.searchParams.get('q')) {
@@ -958,288 +960,34 @@ window.GoldenGateApps = (function () {
         }
         return u.hostname.replace(/^www\./, '').split('.')[0];
       } catch (e) {
-        return 'tab';
+        return 'Web';
       }
     }
 
-    bodyEl.innerHTML = `
-      <div class="helium-shell">
-        <aside class="helium-sidebar">
-          <div class="helium-nav-controls">
-            <button class="helium-icon-btn" id="hel-home-btn" title="Home">${uiIcon('home', 14)}</button>
-            <button class="helium-icon-btn" id="hel-reload-btn" title="Reload Tab">${uiIcon('rotate', 14)}</button>
-            <button class="helium-icon-btn" id="hel-ext-btn" title="Open in New Tab">${uiIcon('external', 14)}</button>
-            <button class="helium-icon-btn" id="hel-games-btn" title="Games">${window.GoldenGateIcons.getIconSVG('games', 14)}</button>
-            <button class="helium-icon-btn" id="hel-pin-btn" title="Pin Tab">${uiIcon('pin', 14)}</button>
-          </div>
-
-          <form class="helium-omnibox-form" id="hel-url-form">
-            <input type="text" class="helium-omnibox-input" id="hel-url-input" value="aero://home" placeholder="Search web or enter URL..." />
-          </form>
-
-          <div class="helium-pinned-row">
-            ${QUICK_SITES.map(
-              (s) => `
-              <button class="helium-pin-tile" data-url="${s.url}" data-title="${s.title}" title="${s.title}">
-                ${s.title.slice(0, 4)}
-              </button>
-            `
-            ).join('')}
-          </div>
-
-          <div class="helium-tabs-list" id="hel-tabs-list"></div>
-        </aside>
-
-        <div class="helium-main" id="hel-viewport"></div>
-      </div>
-    `;
-
-    const viewport = bodyEl.querySelector('#hel-viewport');
-    const tabsListEl = bodyEl.querySelector('#hel-tabs-list');
-    const urlInput = bodyEl.querySelector('#hel-url-input');
-
-    function mountPaneContent(pane, tab) {
-      pane.dataset.mountedUrl = tab.url;
+    function getTabIcon(tab) {
       if (tab.url === 'aero://home') {
-        pane.innerHTML = `
-          <div style="padding:48px 24px;max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <h2 class="kinetic-title" style="font-size:26px;font-weight:700;letter-spacing:-0.02em;">aero</h2>
-              <span style="font-size:11.5px;color:#94a3b8;">Web Proxy & Browser</span>
-            </div>
-
-            <form class="aero-home-search-form" style="display:flex;flex-direction:column;gap:12px;">
-              <div style="display:flex;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,0.18);">
-                <input type="text" class="aero-home-search-in" placeholder="Enter an URL or a search query to access" style="flex:1;height:44px;font-size:15px;color:#1e293b;background:#ffffff;border:none;padding:0 16px;outline:none;font-family:inherit;" />
-                <button type="submit" style="background:#5e50b5;color:#ffffff;border:none;padding:0 24px;font-size:14.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;">&#10140; Go!</button>
-              </div>
-
-              <div style="font-size:12.5px;color:#94a3b8;display:flex;flex-wrap:wrap;align-items:center;gap:6px;line-height:1.6;">
-                <span style="color:#64748b;font-weight:600;">Quick links:</span>
-                <a href="#" class="proxy-quick-tag" data-url="https://duckduckgo.com" style="color:#818cf8;text-decoration:underline;">DuckDuckGo</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.google.com" style="color:#818cf8;text-decoration:underline;">Google</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.youtube.com" style="color:#818cf8;text-decoration:underline;">YouTube</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.facebook.com" style="color:#818cf8;text-decoration:underline;">Facebook</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://en.wikipedia.org" style="color:#818cf8;text-decoration:underline;">Wikipedia</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.reddit.com" style="color:#818cf8;text-decoration:underline;">Reddit</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.instagram.com" style="color:#818cf8;text-decoration:underline;">Instagram</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.tiktok.com" style="color:#818cf8;text-decoration:underline;">TikTok</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://twitter.com" style="color:#818cf8;text-decoration:underline;">Twitter</a>,
-                <a href="#" class="proxy-quick-tag" data-url="https://www.twitch.tv" style="color:#818cf8;text-decoration:underline;">Twitch</a>
-              </div>
-            </form>
-
-            <div style="background:#131824;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
-              <span style="font-size:12px;color:#94a3b8;font-weight:600;white-space:nowrap;">InvisiProxy Backend:</span>
-              <input type="text" class="aero-invisi-backend-input" placeholder="e.g. https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" style="flex:1;background:#0b0f19;border:1px solid rgba(255,255,255,0.12);border-radius:6px;height:32px;padding:0 10px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none;" />
-              <button type="button" class="aero-invisi-backend-save" style="background:#5e50b5;color:#ffffff;border:none;border-radius:6px;padding:0 14px;height:32px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-top:4px;">
-              ${QUICK_SITES.map(
-                (s) => `
-                <div style="padding:14px;border-radius:12px;background:#131824;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
-                  <div class="kinetic-title" style="font-size:13.5px;font-weight:600;">${s.title}</div>
-                  <div style="display:flex;gap:6px;">
-                    <button class="btn-solid card-open" data-url="${s.url}" data-title="${s.title}" style="flex:1;">Open</button>
-                    <button class="btn-flat card-pin" data-url="${s.url}" data-title="${s.title}">Pin</button>
-                  </div>
-                </div>
-              `
-              ).join('')}
-            </div>
-          </div>
-        `;
-
-        function handleSearchOrUrl(raw) {
-          const trimmed = raw.trim();
-          if (!trimmed) return;
-          const nextUrl = normalizeUrl(trimmed);
-          navigateTab(nextUrl, trimmed);
-        }
-
-        pane.querySelector('.aero-home-search-form')?.addEventListener('submit', (e) => {
-          e.preventDefault();
-          const q = pane.querySelector('.aero-home-search-in').value;
-          handleSearchOrUrl(q);
-        });
-
-        pane.querySelectorAll('.proxy-quick-tag').forEach((a) => {
-          a.onclick = (e) => {
-            e.preventDefault();
-            handleSearchOrUrl(a.dataset.url);
-          };
-        });
-
-        pane.querySelectorAll('.card-open').forEach((b) => {
-          b.onclick = () => handleSearchOrUrl(b.dataset.url);
-        });
-        pane.querySelectorAll('.card-pin').forEach((b) => {
-          b.onclick = () => window.GoldenGateOS.addWebsiteShortcut({ title: b.dataset.title, url: b.dataset.url });
-        });
-
-        const backendInput = pane.querySelector('.aero-invisi-backend-input');
-        pane.querySelector('.aero-invisi-backend-save')?.addEventListener('click', () => {
-          if (backendInput) {
-            const val = backendInput.value.trim().replace(/\/+$/, '');
-            localStorage.setItem('aero_invisiproxy_url', val);
-            if (window.GoldenGateOS?.showNotification) {
-              window.GoldenGateOS.showNotification('InvisiProxy Backend Saved');
-            }
-          }
-        });
-      } else if (tab.url === 'aero://games') {
-        pane.innerHTML = '';
-        renderGamesSection(pane);
-      } else {
-        const proxiedSrc = toProxyUrl(tab.url);
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (!proxiedSrc && !isLocal) {
-          pane.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;background:#0d111a;padding:32px;text-align:center;box-sizing:border-box;">
-              <div style="max-width:520px;display:flex;flex-direction:column;align-items:center;gap:16px;">
-                <div style="font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:-0.02em;">InvisiProxy Backend Required</div>
-                <div style="font-size:13px;color:#94a3b8;line-height:1.6;">
-                  GitHub Pages cannot proxy web traffic directly. Connect your deployed InvisiProxy instance (running Scramjet/Wisp) to browse inside Aero tabs, or launch directly in an unblocked Google tab.
-                </div>
-                <div style="display:flex;gap:8px;width:100%;margin-top:6px;">
-                  <input type="text" class="tab-invisi-backend-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" style="flex:1;background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 12px;height:40px;color:#ffffff;font-size:13px;outline:none;font-family:inherit;" />
-                  <button type="button" class="tab-invisi-backend-btn" style="background:#5e50b5;color:#ffffff;border:none;padding:0 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Connect</button>
-                </div>
-                <div style="display:flex;gap:10px;margin-top:6px;">
-                  <button type="button" class="tab-launch-blank-btn" style="background:#1e293b;border:1px solid rgba(255,255,255,0.12);color:#38bdf8;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Launch in about:blank &#10140;</button>
-                </div>
-              </div>
-            </div>
-          `;
-          pane.querySelector('.tab-invisi-backend-btn')?.addEventListener('click', () => {
-            const val = pane.querySelector('.tab-invisi-backend-in')?.value.trim().replace(/\/+$/, '') || '';
-            if (val) {
-              localStorage.setItem('aero_invisiproxy_url', val);
-              mountPaneContent(pane, tab);
-            }
-          });
-          pane.querySelector('.tab-launch-blank-btn')?.addEventListener('click', () => {
-            openInAboutBlank(tab.url, tab.title);
-          });
-        } else {
-          pane.innerHTML = `
-            <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:#0d111a;">
-              <div style="padding:8px 16px;background:#111827;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-                <span style="font-size:12px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;font-family:monospace;">${tab.url}</span>
-                <button class="hel-open-ext-link" style="background:#5e50b5;color:#ffffff;border:none;padding:5px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;">Launch in about:blank &#10140;</button>
-              </div>
-              <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
-            </div>
-          `;
-          pane.querySelector('.hel-open-ext-link')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            openInAboutBlank(tab.url, tab.title);
-          });
-        }
+        return uiIcon('home', 12);
       }
+      if (tab.url === 'aero://games') {
+        return window.GoldenGateIcons.getIconSVG('games', 13);
+      }
+      return uiIcon('globe', 12);
     }
 
-    function syncSidebarAndPanes() {
-      const activeTab = getActiveTab();
-      if (urlInput) urlInput.value = activeTab.url;
-
-      // Render vertical tabs list
-      tabsListEl.innerHTML = `
-        ${tabs
-          .map(
-            (t) => `
-          <div class="helium-vtab ${t.id === activeTabId ? 'active' : ''}" data-tid="${t.id}">
-            <span class="helium-vtab-title">${t.title}</span>
-            ${
-              tabs.length > 1
-                ? `<span class="helium-vtab-close" data-close-tid="${t.id}" style="display:inline-flex;align-items:center;">${uiIcon('close', 10)}</span>`
-                : ''
-            }
-          </div>
-        `
-          )
-          .join('')}
-        <button class="helium-newtab-btn" id="hel-newtab-btn" style="display:flex;align-items:center;gap:6px;">${uiIcon('plus', 11)} <span>New Tab</span></button>
-      `;
-
-      // Remove panes for closed tabs
-      for (const [tid, paneEl] of tabPaneEls.entries()) {
-        if (!tabs.some((t) => t.id === tid)) {
-          paneEl.remove();
-          tabPaneEls.delete(tid);
-        }
+    function toProxyUrl(targetUrl) {
+      if (!targetUrl || targetUrl.startsWith('aero://')) return null;
+      const backend = (localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL).trim().replace(/\/+$/, '');
+      const fullUrl = targetUrl.startsWith('http://') || targetUrl.startsWith('https://') ? targetUrl : `https://${targetUrl}`;
+      if (backend) {
+        return `${backend}/scramjet/${fullUrl}`;
       }
-
-      // Ensure pane exists for each tab and crossfade active state
-      tabs.forEach((t) => {
-        let pane = tabPaneEls.get(t.id);
-        if (!pane) {
-          pane = document.createElement('div');
-          pane.className = 'aero-tab-pane';
-          viewport.appendChild(pane);
-          tabPaneEls.set(t.id, pane);
-        }
-        if (pane.dataset.mountedUrl !== t.url) {
-          mountPaneContent(pane, t);
-        }
-        pane.classList.toggle('active', t.id === activeTabId);
-      });
-
-      tabsListEl.querySelectorAll('.helium-vtab').forEach((tabEl) => {
-        tabEl.onclick = (e) => {
-          const closeBtn = e.target.closest('[data-close-tid]');
-          if (closeBtn) {
-            e.stopPropagation();
-            const cid = closeBtn.dataset.closeTid;
-            tabs = tabs.filter((t) => t.id !== cid);
-            if (activeTabId === cid) activeTabId = tabs[0].id;
-            syncSidebarAndPanes();
-            return;
-          }
-          const clickedId = tabEl.dataset.tid;
-          if (activeTabId === clickedId) {
-            if (window.GoldenGateOS?.focusWindow) {
-              window.GoldenGateOS.focusWindow('aero');
-            }
-            return;
-          }
-          activeTabId = clickedId;
-          syncSidebarAndPanes();
-        };
-      });
-
-      tabsListEl.querySelector('#hel-newtab-btn').onclick = () => {
-        const nid = 'vt-' + Date.now();
-        tabs.push({ id: nid, title: 'home', url: 'aero://home' });
-        activeTabId = nid;
-        syncSidebarAndPanes();
-      };
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocal) {
+        return `/proxy?url=${encodeURIComponent(fullUrl)}`;
+      }
+      return null;
     }
 
-    function navigateTab(rawUrl, explicitTitle) {
-      const nextUrl = normalizeUrl(rawUrl);
-      const nextTitle = explicitTitle || getShortTitle(nextUrl);
-
-      const existingTab = tabs.find((t) => t.url === nextUrl);
-      if (existingTab) {
-        activeTabId = existingTab.id;
-        syncSidebarAndPanes();
-        return;
-      }
-
-      const tab = getActiveTab();
-      tab.url = nextUrl;
-      tab.title = nextTitle;
-      syncSidebarAndPanes();
-    }
-
-    bodyEl.querySelector('#hel-home-btn').onclick = () => navigateTab('aero://home', 'home');
-    bodyEl.querySelector('#hel-reload-btn').onclick = () => {
-      const activeTab = getActiveTab();
-      const pane = tabPaneEls.get(activeTab.id);
-      if (pane) mountPaneContent(pane, activeTab);
-    };
     function openInAboutBlank(url, title) {
       if (!url || url.startsWith('aero://')) return;
       const backend = (localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL).trim().replace(/\/+$/, '');
@@ -1280,29 +1028,396 @@ window.GoldenGateApps = (function () {
         win.location.href = finalSrc;
       }
     }
-    bodyEl.querySelector('#hel-ext-btn').onclick = () => {
+
+    bodyEl.innerHTML = `
+      <div class="aero-browser">
+        <!-- Top Browser Chrome Header -->
+        <header class="aero-chrome-header">
+          <!-- Row 1: Modern Tab Bar -->
+          <div class="aero-tabs-bar">
+            <div class="aero-tabs-scroller" id="aero-tabs-scroller"></div>
+            <button class="aero-new-tab-btn" id="aero-new-tab-btn" title="New Tab">${uiIcon('plus', 13)}</button>
+
+            <div class="aero-chrome-spacer"></div>
+
+            <div class="aero-top-actions">
+              <button class="aero-top-action-btn" id="aero-proxy-badge-btn" title="InvisiProxy Status">
+                <span class="aero-status-dot"></span>
+                <span>InvisiProxy</span>
+              </button>
+              <button class="aero-top-action-btn" id="aero-open-blank-btn" title="Open in about:blank (Cloaked)">
+                ${uiIcon('external', 12)}
+                <span>about:blank</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 2: Navigation & URL Toolbar -->
+          <div class="aero-nav-bar">
+            <div class="aero-nav-btns">
+              <button class="aero-nav-btn" id="aero-nav-back" title="Back">${uiIcon('back', 13)}</button>
+              <button class="aero-nav-btn" id="aero-nav-forward" title="Forward">${uiIcon('forward', 13)}</button>
+              <button class="aero-nav-btn" id="aero-nav-reload" title="Reload">${uiIcon('rotate', 13)}</button>
+              <button class="aero-nav-btn" id="aero-nav-home" title="Home">${uiIcon('home', 14)}</button>
+            </div>
+
+            <!-- Centered Omnibox -->
+            <form class="aero-omnibox-form" id="aero-url-form">
+              <div class="aero-omnibox-lock" id="aero-omnibox-lock">
+                ${uiIcon('lock', 12)}
+              </div>
+              <input type="text" class="aero-omnibox-input" id="aero-url-input" placeholder="Search with DuckDuckGo or enter web address..." autocomplete="off" spellcheck="false" />
+              <button type="button" class="aero-omnibox-clear hidden" id="aero-url-clear" title="Clear">${uiIcon('close', 10)}</button>
+              <button type="submit" class="aero-omnibox-go" id="aero-url-go" title="Go">${uiIcon('forward', 12)}</button>
+            </form>
+
+            <div class="aero-toolbar-right">
+              <button class="aero-nav-btn" id="aero-games-btn" title="Games Hub">${window.GoldenGateIcons.getIconSVG('games', 15)}</button>
+              <button class="aero-nav-btn" id="aero-pin-btn" title="Add Shortcut to Desktop">${uiIcon('pin', 13)}</button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Main Viewport -->
+        <main class="aero-viewport" id="aero-viewport"></main>
+      </div>
+    `;
+
+    const viewport = bodyEl.querySelector('#aero-viewport');
+    const tabsScroller = bodyEl.querySelector('#aero-tabs-scroller');
+    const urlInput = bodyEl.querySelector('#aero-url-input');
+    const urlClearBtn = bodyEl.querySelector('#aero-url-clear');
+    const backBtn = bodyEl.querySelector('#aero-nav-back');
+    const forwardBtn = bodyEl.querySelector('#aero-nav-forward');
+    const reloadBtn = bodyEl.querySelector('#aero-nav-reload');
+    const homeBtn = bodyEl.querySelector('#aero-nav-home');
+    const blankBtn = bodyEl.querySelector('#aero-open-blank-btn');
+    const proxyBadgeBtn = bodyEl.querySelector('#aero-proxy-badge-btn');
+    const gamesBtn = bodyEl.querySelector('#aero-games-btn');
+    const pinBtn = bodyEl.querySelector('#aero-pin-btn');
+
+    function mountPaneContent(pane, tab) {
+      pane.dataset.mountedUrl = tab.url;
+
+      if (tab.url === 'aero://home') {
+        pane.innerHTML = `
+          <div style="width:100%;height:100%;overflow-y:auto;background:#090d16;">
+            <div class="aero-home-container">
+              <!-- Aero Hero -->
+              <div class="aero-brand-hero">
+                <div class="aero-hero-logo">
+                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                    <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#ffffff" stroke-width="2" fill="rgba(255, 255, 255, 0.16)"/>
+                    <path d="M9.8 8.3C9.8 7.5 10.7 7.05 11.38 7.48L16.4 10.68C17.02 11.07 17.02 11.93 16.4 12.32L11.38 15.52C10.7 15.95 9.8 15.5 9.8 14.7V8.3Z" fill="#ffffff"/>
+                  </svg>
+                </div>
+                <h1 class="aero-hero-title">Aero</h1>
+                <p class="aero-hero-sub">Fast, Private, Proxied Web Browsing</p>
+              </div>
+
+              <!-- Main Centered Search Box -->
+              <form class="aero-home-search-form" style="width:100%;display:flex;justify-content:center;">
+                <div class="aero-home-search-box">
+                  <span style="color:#94a3b8;display:flex;align-items:center;">${uiIcon('search', 16)}</span>
+                  <input type="text" class="aero-home-search-in" placeholder="Search DuckDuckGo or enter web address..." autocomplete="off" />
+                  <button type="submit" class="aero-home-search-btn">
+                    <span>Search</span>
+                    ${uiIcon('forward', 12)}
+                  </button>
+                </div>
+              </form>
+
+              <!-- Speed Dial Shortcuts -->
+              <div class="aero-speed-dial">
+                ${QUICK_SITES.map(
+                  (s) => `
+                  <a href="#" class="aero-speed-card" data-url="${s.url}" data-title="${s.title}">
+                    <div class="aero-speed-icon" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;">
+                      ${s.title.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span class="aero-speed-title">${s.title}</span>
+                  </a>
+                `
+                ).join('')}
+              </div>
+
+              <!-- InvisiProxy Backend Configuration Card -->
+              <div class="aero-backend-card">
+                <div class="aero-backend-header">
+                  <div class="aero-backend-title">
+                    ${uiIcon('shield', 14)}
+                    <span>InvisiProxy Backend</span>
+                  </div>
+                  <span class="aero-backend-status">Connected</span>
+                </div>
+                <div class="aero-backend-row">
+                  <input type="text" class="aero-backend-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" />
+                  <button type="button" class="aero-backend-save-btn">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        function handleSearchOrUrl(raw) {
+          const trimmed = (raw || '').trim();
+          if (!trimmed) return;
+          const nextUrl = normalizeUrl(trimmed);
+          navigateTab(nextUrl, trimmed);
+        }
+
+        pane.querySelector('.aero-home-search-form')?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const q = pane.querySelector('.aero-home-search-in')?.value;
+          handleSearchOrUrl(q);
+        });
+
+        pane.querySelectorAll('.aero-speed-card').forEach((card) => {
+          card.onclick = (e) => {
+            e.preventDefault();
+            handleSearchOrUrl(card.dataset.url);
+          };
+        });
+
+        const backendIn = pane.querySelector('.aero-backend-in');
+        pane.querySelector('.aero-backend-save-btn')?.addEventListener('click', () => {
+          if (backendIn) {
+            const val = backendIn.value.trim().replace(/\/+$/, '');
+            localStorage.setItem('aero_invisiproxy_url', val);
+            if (window.GoldenGateOS?.showToast) {
+              window.GoldenGateOS.showToast('InvisiProxy Backend Saved');
+            }
+          }
+        });
+      } else if (tab.url === 'aero://games') {
+        pane.innerHTML = '';
+        renderGamesSection(pane);
+      } else {
+        const proxiedSrc = toProxyUrl(tab.url);
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        if (!proxiedSrc && !isLocal) {
+          pane.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;background:#090d16;padding:32px;text-align:center;box-sizing:border-box;">
+              <div style="max-width:500px;display:flex;flex-direction:column;align-items:center;gap:14px;background:#0d121f;border:1px solid rgba(255,255,255,0.1);padding:32px 28px;border-radius:16px;box-shadow:0 12px 36px rgba(0,0,0,0.4);">
+                <div style="width:48px;height:48px;border-radius:14px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;color:#38bdf8;">
+                  ${uiIcon('shield', 22)}
+                </div>
+                <div style="font-size:20px;font-weight:700;color:#f8fafc;">InvisiProxy Backend Required</div>
+                <div style="font-size:13px;color:#94a3b8;line-height:1.6;">
+                  GitHub Pages restricts direct external framing. Connect your InvisiProxy backend or open seamlessly in about:blank cloaked tab.
+                </div>
+                <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
+                  <input type="text" class="tab-fallback-in" placeholder="https://your-invisiproxy.app.github.dev" value="${localStorage.getItem('aero_invisiproxy_url') || DEFAULT_INVISIPROXY_URL}" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.14);border-radius:7px;padding:0 12px;height:38px;color:#fff;font-size:12.5px;outline:none;" />
+                  <button type="button" class="tab-fallback-save" style="background:#38bdf8;color:#040812;border:none;padding:0 16px;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;">Connect</button>
+                </div>
+                <button type="button" class="tab-fallback-blank" style="margin-top:6px;width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#ffffff;padding:10px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                  ${uiIcon('external', 13)}
+                  <span>Launch in about:blank</span>
+                </button>
+              </div>
+            </div>
+          `;
+
+          pane.querySelector('.tab-fallback-save')?.addEventListener('click', () => {
+            const val = pane.querySelector('.tab-fallback-in')?.value.trim().replace(/\/+$/, '');
+            if (val) {
+              localStorage.setItem('aero_invisiproxy_url', val);
+              mountPaneContent(pane, tab);
+            }
+          });
+
+          pane.querySelector('.tab-fallback-blank')?.addEventListener('click', () => {
+            openInAboutBlank(tab.url, tab.title);
+          });
+        } else {
+          pane.innerHTML = `
+            <div style="display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;background:#090d16;position:relative;">
+              <div style="position:absolute;top:10px;right:14px;z-index:20;display:flex;gap:6px;opacity:0.75;transition:opacity 0.2s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.75'">
+                <button class="aero-tab-floating-btn" style="background:rgba(13,18,31,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                  ${uiIcon('external', 11)}
+                  <span>Pop out</span>
+                </button>
+              </div>
+              <iframe class="aero-iframe" src="${proxiedSrc}" style="flex:1;width:100%;border:none;background:#ffffff;" allow="fullscreen; autoplay; camera; microphone; clipboard-read; clipboard-write"></iframe>
+            </div>
+          `;
+
+          pane.querySelector('.aero-tab-floating-btn')?.addEventListener('click', () => {
+            openInAboutBlank(tab.url, tab.title);
+          });
+        }
+      }
+    }
+
+    function syncSidebarAndPanes() {
+      const activeTab = getActiveTab();
+      if (urlInput) {
+        urlInput.value = activeTab.url === 'aero://home' ? '' : activeTab.url;
+        urlClearBtn?.classList.toggle('hidden', !urlInput.value);
+      }
+
+      // Update Back / Forward buttons disabled state
+      if (backBtn) backBtn.disabled = (activeTab.historyIdx || 0) <= 0;
+      if (forwardBtn) forwardBtn.disabled = (activeTab.historyIdx || 0) >= (activeTab.history || []).length - 1;
+
+      // Render horizontal tab strip
+      tabsScroller.innerHTML = tabs
+        .map(
+          (t) => `
+        <div class="aero-tab ${t.id === activeTabId ? 'active' : ''}" data-tid="${t.id}" title="${t.title}">
+          <span class="aero-tab-icon">${getTabIcon(t)}</span>
+          <span class="aero-tab-title">${t.title}</span>
+          ${
+            tabs.length > 1
+              ? `<span class="aero-tab-close" data-close-tid="${t.id}" title="Close tab">${uiIcon('close', 9)}</span>`
+              : ''
+          }
+        </div>
+      `
+        )
+        .join('');
+
+      // Clean up removed panes
+      for (const [tid, paneEl] of tabPaneEls.entries()) {
+        if (!tabs.some((t) => t.id === tid)) {
+          paneEl.remove();
+          tabPaneEls.delete(tid);
+        }
+      }
+
+      // Mount or toggle pane visibility with smooth crossfade
+      tabs.forEach((t) => {
+        let pane = tabPaneEls.get(t.id);
+        if (!pane) {
+          pane = document.createElement('div');
+          pane.className = 'aero-tab-pane';
+          viewport.appendChild(pane);
+          tabPaneEls.set(t.id, pane);
+        }
+        if (pane.dataset.mountedUrl !== t.url) {
+          mountPaneContent(pane, t);
+        }
+        pane.classList.toggle('active', t.id === activeTabId);
+      });
+
+      // Tab click & close listeners
+      tabsScroller.querySelectorAll('.aero-tab').forEach((tabEl) => {
+        tabEl.onclick = (e) => {
+          const closeBtn = e.target.closest('[data-close-tid]');
+          if (closeBtn) {
+            e.stopPropagation();
+            const cid = closeBtn.dataset.closeTid;
+            tabs = tabs.filter((t) => t.id !== cid);
+            if (activeTabId === cid) activeTabId = tabs[0].id;
+            syncSidebarAndPanes();
+            return;
+          }
+          activeTabId = tabEl.dataset.tid;
+          syncSidebarAndPanes();
+        };
+      });
+    }
+
+    function navigateTab(rawUrl, explicitTitle, pushHistory = true) {
+      const nextUrl = normalizeUrl(rawUrl);
+      const nextTitle = explicitTitle || getShortTitle(nextUrl);
+      const tab = getActiveTab();
+
+      tab.url = nextUrl;
+      tab.title = nextTitle;
+
+      if (!tab.history) tab.history = [nextUrl];
+      if (pushHistory) {
+        if (tab.historyIdx === undefined) tab.historyIdx = 0;
+        tab.history = tab.history.slice(0, tab.historyIdx + 1);
+        tab.history.push(nextUrl);
+        tab.historyIdx = tab.history.length - 1;
+      }
+
+      syncSidebarAndPanes();
+    }
+
+    // Top action bar wiring
+    bodyEl.querySelector('#aero-new-tab-btn')?.addEventListener('click', () => {
+      const nid = 'vt-' + Date.now();
+      tabs.push({ id: nid, title: 'Home', url: 'aero://home', history: ['aero://home'], historyIdx: 0 });
+      activeTabId = nid;
+      syncSidebarAndPanes();
+    });
+
+    backBtn?.addEventListener('click', () => {
+      const tab = getActiveTab();
+      if (tab.history && tab.historyIdx > 0) {
+        tab.historyIdx--;
+        navigateTab(tab.history[tab.historyIdx], null, false);
+      }
+    });
+
+    forwardBtn?.addEventListener('click', () => {
+      const tab = getActiveTab();
+      if (tab.history && tab.historyIdx < tab.history.length - 1) {
+        tab.historyIdx++;
+        navigateTab(tab.history[tab.historyIdx], null, false);
+      }
+    });
+
+    reloadBtn?.addEventListener('click', () => {
+      const activeTab = getActiveTab();
+      const pane = tabPaneEls.get(activeTab.id);
+      if (pane) mountPaneContent(pane, activeTab);
+    });
+
+    homeBtn?.addEventListener('click', () => {
+      navigateTab('aero://home', 'Home');
+    });
+
+    blankBtn?.addEventListener('click', () => {
       const activeTab = getActiveTab();
       openInAboutBlank(activeTab.url, activeTab.title);
-    };
-    bodyEl.querySelector('#hel-games-btn').onclick = () => navigateTab('aero://games', 'games');
-    bodyEl.querySelector('#hel-pin-btn').onclick = () => {
+    });
+
+    proxyBadgeBtn?.addEventListener('click', () => {
+      navigateTab('aero://home', 'Home');
+      if (window.GoldenGateOS?.showToast) {
+        window.GoldenGateOS.showToast('InvisiProxy Backend settings');
+      }
+    });
+
+    gamesBtn?.addEventListener('click', () => {
+      navigateTab('aero://games', 'Games');
+    });
+
+    pinBtn?.addEventListener('click', () => {
       const activeTab = getActiveTab();
-      window.GoldenGateOS.addWebsiteShortcut({ title: activeTab.title, url: activeTab.url });
-    };
+      if (window.GoldenGateOS?.addWebsiteShortcut) {
+        window.GoldenGateOS.addWebsiteShortcut({ title: activeTab.title, url: activeTab.url });
+      }
+    });
 
-    bodyEl.querySelector('#hel-url-form').onsubmit = (e) => {
+    // Omnibox URL Form
+    bodyEl.querySelector('#aero-url-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      navigateTab(urlInput.value);
-    };
+      const val = urlInput.value.trim();
+      if (val) navigateTab(val);
+    });
 
-    bodyEl.querySelectorAll('.helium-pin-tile').forEach((tile) => {
-      tile.onclick = () => navigateTab(tile.dataset.url, tile.dataset.title);
+    urlInput?.addEventListener('input', () => {
+      urlClearBtn?.classList.toggle('hidden', !urlInput.value);
+    });
+
+    urlClearBtn?.addEventListener('click', () => {
+      urlInput.value = '';
+      urlClearBtn.classList.add('hidden');
+      urlInput.focus();
     });
 
     if (options.initialUrl) {
       const startUrl = normalizeUrl(options.initialUrl);
       tabs[0].url = startUrl;
       tabs[0].title = options.initialTitle || getShortTitle(startUrl);
+      tabs[0].history = [startUrl];
+      tabs[0].historyIdx = 0;
     }
 
     syncSidebarAndPanes();
@@ -1314,7 +1429,7 @@ window.GoldenGateApps = (function () {
   // ==========================================================================
   function renderCode(bodyEl) {
     const STORAGE_KEY = 'webos_code_editor_v1';
-    const DEFAULT_CODE = `// GoldenGate OS Code Scratchpad
+    const DEFAULT_CODE = `// AeroOS Code Scratchpad
 function calculateFibonacci(limit) {
   const seq = [0, 1];
   for (let i = 2; i < limit; i++) {
@@ -2836,15 +2951,10 @@ ${profile.bio}
         return renderWallpaper(bodyEl, options);
       case 'files':
         return renderFiles(bodyEl);
-      case 'glass':
-        return renderGlass(bodyEl);
-      case 'notes':
-        return renderNotes(bodyEl);
       case 'terminal':
         return renderTerminal(bodyEl);
-      case 'calc':
       default:
-        return renderCalc(bodyEl);
+        return null;
     }
   }
 

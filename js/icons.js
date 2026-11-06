@@ -4,8 +4,8 @@ window.GoldenGateIcons = (function () {
   function getStartIcon() {
     return `
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-        <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#38bdf8" stroke-width="2" fill="rgba(56, 189, 248, 0.14)"/>
-        <path d="M9.8 8.3C9.8 7.5 10.7 7.05 11.38 7.48L16.4 10.68C17.02 11.07 17.02 11.93 16.4 12.32L11.38 15.52C10.7 15.95 9.8 15.5 9.8 14.7V8.3Z" fill="#38bdf8"/>
+        <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#ffffff" stroke-width="2" fill="rgba(255, 255, 255, 0.16)"/>
+        <path d="M9.8 8.3C9.8 7.5 10.7 7.05 11.38 7.48L16.4 10.68C17.02 11.07 17.02 11.93 16.4 12.32L11.38 15.52C10.7 15.95 9.8 15.5 9.8 14.7V8.3Z" fill="#ffffff"/>
       </svg>
     `;
   }
@@ -14,9 +14,9 @@ window.GoldenGateIcons = (function () {
     switch (type) {
       case 'aero':
         return `
-          <svg class="simple-icon-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="simple-icon-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="5"/>
-            <path d="M9.8 8.4C9.8 7.65 10.65 7.2 11.3 7.62L16.1 10.68C16.7 11.06 16.7 11.94 16.1 12.32L11.3 15.38C10.65 15.8 9.8 15.35 9.8 14.6V8.4Z" fill="currentColor" stroke="none"/>
+            <path d="M9.8 8.4C9.8 7.65 10.65 7.2 11.3 7.62L16.1 10.68C16.7 11.06 16.7 11.94 16.1 12.32L11.3 15.38C10.65 15.8 9.8 15.35 9.8 14.6V8.4Z" fill="#ffffff" stroke="none"/>
           </svg>
         `;
 
@@ -190,6 +190,12 @@ window.GoldenGateIcons = (function () {
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 12a2.4 2.4 0 0 1 0 4.8H18v3.2a1 1 0 0 1-1 1h-3.2v-1.4a2.4 2.4 0 0 0-4.8 0V21H5.8a1 1 0 0 1-1-1v-3.2H3.4a2.4 2.4 0 0 1 0-4.8h1.4V8.8a1 1 0 0 1 1-1H9V6.4a2.4 2.4 0 0 1 4.8 0v1.4H17a1 1 0 0 1 1 1V12h1.4z"/></svg>`;
       case 'pin':
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;
+            case 'forward':
+        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+      case 'lock':
+        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+      case 'globe':
+        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
       case 'back':
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
       case 'note':

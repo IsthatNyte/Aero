@@ -145,7 +145,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         prompt = (data.get('prompt') or '').strip()
         system_instruction = (
             data.get('system')
-            or 'You are Droplet, the built-in assistant for GoldenGate Web OS. Reply in 1 to 4 clear, concise sentences. Never use em-dashes.'
+            or 'You are Droplet, the built-in assistant for AeroOS. Reply in 1 to 4 clear, concise sentences. Never use em-dashes.'
         ).strip()
         api_key = (
             data.get('apiKey')
@@ -211,7 +211,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     data=payload,
                     headers={
                         'Content-Type': 'application/json',
-                        'User-Agent': 'Mozilla/5.0 GoldenGateOS/1.0',
+                        'User-Agent': 'Mozilla/5.0 AeroOS/1.0',
                     },
                     method='POST',
                 )
@@ -235,7 +235,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 ).strip(' ?.,!')
                 if topic:
                     wiki_url = f'https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(topic)}'
-                    req = urllib.request.Request(wiki_url, headers={'User-Agent': 'GoldenGateOS/1.0'})
+                    req = urllib.request.Request(wiki_url, headers={'User-Agent': 'AeroOS/1.0'})
                     with urllib.request.urlopen(req, timeout=6, context=ctx) as resp:
                         wdata = json.loads(resp.read().decode('utf-8', errors='replace'))
                         extract = (wdata.get('extract') or '').strip()
@@ -251,7 +251,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not reply_text:
             try:
                 ddg_url = f'https://api.duckduckgo.com/?q={urllib.parse.quote(prompt)}&format=json&no_html=1&skip_disambig=1'
-                req = urllib.request.Request(ddg_url, headers={'User-Agent': 'GoldenGateOS/1.0'})
+                req = urllib.request.Request(ddg_url, headers={'User-Agent': 'AeroOS/1.0'})
                 with urllib.request.urlopen(req, timeout=6, context=ctx) as resp:
                     ddg = json.loads(resp.read().decode('utf-8', errors='replace'))
                     abstract = (ddg.get('AbstractText') or ddg.get('Answer') or '').strip()
@@ -664,5 +664,5 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 if __name__ == '__main__':
     with ThreadedHTTPServer(('', PORT), ProxyHTTPRequestHandler) as httpd:
-        print(f'Serving GoldenGate OS with proxy and AI bridge on http://localhost:{PORT}')
+        print(f'Serving AeroOS with proxy and AI bridge on http://localhost:{PORT}')
         httpd.serve_forever()

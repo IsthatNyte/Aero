@@ -1122,7 +1122,7 @@ window.GoldenGateDroplet = (function () {
     const screenSummary = `Focused app: ${ctx.focusedApp || 'desktop'}. Active note: ${ctx.activeNote ? `${ctx.activeNote.title} (${ctx.activeNote.content.slice(0, 120)})` : 'none'}. Current song: ${ctx.currentTrack ? `${ctx.currentTrack.title} by ${ctx.currentTrack.artist}` : 'none'}.`;
 
     const sysInstruction = [
-      'You are Droplet, the intelligent assistant inside GoldenGate Web OS.',
+      'You are Droplet, the intelligent assistant inside AeroOS.',
       'Reply in 1 to 4 concise, helpful sentences. Never use em-dashes or markdown asterisks.',
       `User memories: ${memText || 'none'}.`,
       `Onscreen OS context: ${screenSummary}`,
