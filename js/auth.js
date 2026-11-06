@@ -238,7 +238,8 @@
   }
 
   async function saveToCloud(isBackground = false) {
-    if (!client || !currentUser) return;
+    if (!client) return { error: 'Supabase client not initialized' };
+    if (!currentUser) return { error: 'Not signed in. Sign in to sync with cloud.' };
     isSyncing = true;
     try {
       const lglRaw = localStorage.getItem('webos_lgl_state_v2');
@@ -296,22 +297,21 @@
       };
 
       // 1. Save directly to Supabase Auth user_metadata (guaranteed to persist even if public DB tables are absent)
-      try {
-        if (client.auth && typeof client.auth.updateUser === 'function') {
-          const { data: authUpdateData } = await client.auth.updateUser({
-            data: {
-              aero_cloud_sync: payload,
-              username: activeUsername,
-              displayName: profile.displayName || activeUsername
-            }
-          });
-          if (authUpdateData && authUpdateData.user) {
-            currentUser = authUpdateData.user;
-            localStorage.setItem('webos_auth_cached_user', JSON.stringify(currentUser));
+      if (client.auth && typeof client.auth.updateUser === 'function') {
+        const { data: authUpdateData, error: authErr } = await client.auth.updateUser({
+          data: {
+            aero_cloud_sync: payload,
+            username: activeUsername,
+            displayName: profile.displayName || activeUsername
           }
+        });
+        if (authErr) {
+          console.warn('Supabase auth metadata update error:', authErr);
+          return { error: authErr.message || 'Cloud update failed' };
+        } else if (authUpdateData && authUpdateData.user) {
+          currentUser = authUpdateData.user;
+          localStorage.setItem('webos_auth_cached_user', JSON.stringify(currentUser));
         }
-      } catch (authErr) {
-        console.warn('Supabase auth metadata update error:', authErr);
       }
 
       // 2. Also try database table upsert
@@ -322,15 +322,17 @@
       if (!isBackground && window.GoldenGateOS && window.GoldenGateOS.showNotification) {
         window.GoldenGateOS.showNotification('Cloud Synced');
       }
+      return { success: true };
     } catch (err) {
       console.warn('Sync to cloud error:', err);
+      return { error: err.message || 'Failed to sync' };
     } finally {
       isSyncing = false;
     }
   }
 
   async function loadFromCloud() {
-    if (!client || !currentUser) return;
+    if (!client || !currentUser) return { error: 'Not signed in' };
     isSyncing = true;
     try {
       let metaPayload = null;
@@ -370,13 +372,35 @@
         setProfile(data.profile);
       }
 
-      // Restore Playlists
+      // Restore Playlists: merge cloud and local playlists
       if (Array.isArray(data.playlists) && data.playlists.length > 0) {
-        localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(data.playlists));
+        const localPls = JSON.parse(localStorage.getItem('webos_limusic_user_playlists_v2') || '[]');
+        const plMap = new Map();
+        data.playlists.forEach((p) => {
+          if (p && p.id) plMap.set(p.id, { ...p, tracks: [...(p.tracks || [])] });
+        });
+        localPls.forEach((p) => {
+          if (p && p.id) {
+            if (plMap.has(p.id)) {
+              const existing = plMap.get(p.id);
+              const trackMap = new Map();
+              (existing.tracks || []).forEach((t) => trackMap.set(t.id, t));
+              (p.tracks || []).forEach((t) => trackMap.set(t.id, t));
+              plMap.set(p.id, { ...existing, ...p, tracks: Array.from(trackMap.values()) });
+            } else {
+              plMap.set(p.id, p);
+            }
+          }
+        });
+        localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(Array.from(plMap.values())));
       }
-      // Restore Liked Songs
+      // Restore Liked Songs: merge
       if (Array.isArray(data.liked_songs) && data.liked_songs.length > 0) {
-        localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(data.liked_songs));
+        const localLiked = JSON.parse(localStorage.getItem('webos_limusic_liked_v2') || '[]');
+        const likedMap = new Map();
+        data.liked_songs.forEach((t) => { if (t && t.id) likedMap.set(t.id, t); });
+        localLiked.forEach((t) => { if (t && t.id) likedMap.set(t.id, t); });
+        localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(Array.from(likedMap.values())));
       }
       // Restore Listening History
       if (Array.isArray(data.listening_history) && data.listening_history.length > 0) {

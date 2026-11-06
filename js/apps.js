@@ -323,6 +323,17 @@ window.GoldenGateApps = (function () {
                 <input type="checkbox" id="lim-glow-chk" ${settings.visualizerGlow ? 'checked' : ''} style="accent-color:var(--lim-accent);width:16px;height:16px;" />
               </label>
             </div>
+
+            <!-- Library Backup & Restore Card -->
+            <div style="padding:14px;border-radius:12px;background:var(--lim-card);border:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:12.5px;font-weight:600;color:#fff;">Library Backup & Restore</div>
+              <div style="font-size:11.5px;color:#94a3b8;">Export your playlists, liked tracks, and listening history to a file, or restore them.</div>
+              <div style="display:flex;gap:8px;">
+                <button id="lim-export-lib-btn" class="limusic-mini-btn" style="flex:1;padding:8px 12px;font-size:11.5px;">Export Playlists (.json)</button>
+                <button id="lim-import-lib-btn" class="limusic-mini-btn" style="flex:1;padding:8px 12px;font-size:11.5px;">Import Playlists (.json)</button>
+                <input type="file" id="lim-import-lib-file" accept=".json" style="display:none;" />
+              </div>
+            </div>
           </div>
         `;
       } else if (viewMode === 'playlist' && activePl) {
@@ -476,6 +487,40 @@ window.GoldenGateApps = (function () {
       bodyEl.querySelector('#lim-custom-accent')?.addEventListener('input', (e) => {
         window.GoldenGateMusic.updateSettings({ accent: e.target.value });
       });
+      bodyEl.querySelector('#lim-export-lib-btn')?.addEventListener('click', () => {
+        if (!window.GoldenGateMusic?.exportLibraryJson) return;
+        const json = window.GoldenGateMusic.exportLibraryJson();
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `limusic-library-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Playlists exported');
+      });
+
+      const limFileInp = bodyEl.querySelector('#lim-import-lib-file');
+      bodyEl.querySelector('#lim-import-lib-btn')?.addEventListener('click', () => {
+        limFileInp?.click();
+      });
+      limFileInp?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          if (!window.GoldenGateMusic?.importLibraryJson) return;
+          const res = window.GoldenGateMusic.importLibraryJson(evt.target.result);
+          if (res && res.error) {
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Import failed: ' + res.error);
+          } else {
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Playlists restored successfully');
+            render();
+          }
+        };
+        reader.readAsText(file);
+      });
+
       bodyEl.querySelector('#lim-fade-slider')?.addEventListener('input', (e) => {
         const val = Number(e.target.value);
         const lbl = bodyEl.querySelector('#lim-fade-label');
@@ -717,6 +762,7 @@ window.GoldenGateApps = (function () {
     render();
     window.addEventListener('music:settings-updated', handleSettingsUpdated);
     window.addEventListener('music:updated', handleMusicUpdated);
+    window.addEventListener('music:library-changed', () => render());
   }
 
   // ==========================================================================
@@ -2301,6 +2347,11 @@ ${profile.bio}
                   Sign Out
                 </button>
               </div>
+              <div style="display:flex;gap:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
+                <button id="acc-export-btn" class="btn-flat" style="flex:1;padding:7px;background:rgba(255,255,255,0.05);color:#e2e8f0;font-size:11.5px;border-radius:8px;">Export Backup</button>
+                <button id="acc-import-btn" class="btn-flat" style="flex:1;padding:7px;background:rgba(255,255,255,0.05);color:#e2e8f0;font-size:11.5px;border-radius:8px;">Import Backup</button>
+                <input type="file" id="acc-import-file" accept=".json" style="display:none;" />
+              </div>
             </div>
             <div id="acc-msg" style="font-size:12px;min-height:16px;"></div>
           </div>
@@ -2317,10 +2368,78 @@ ${profile.bio}
         bodyEl.querySelector('#acc-sync-btn').onclick = async () => {
           const btn = bodyEl.querySelector('#acc-sync-btn');
           btn.textContent = 'Syncing...';
-          await window.AeroAuth.saveToCloud();
-          btn.textContent = 'Synced!';
-          setTimeout(() => updateUI(), 800);
+          const res = await window.AeroAuth.saveToCloud();
+          if (res && res.error) {
+            btn.textContent = 'Sync Failed';
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast(res.error);
+          } else {
+            btn.textContent = 'Synced!';
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Cloud sync complete');
+          }
+          setTimeout(() => updateUI(), 1200);
         };
+        bodyEl.querySelector('#acc-export-btn')?.addEventListener('click', () => {
+          const backup = {
+            version: 'aero-backup-v1',
+            date: new Date().toISOString(),
+            playlists: JSON.parse(localStorage.getItem('webos_limusic_user_playlists_v2') || '[]'),
+            liked_songs: JSON.parse(localStorage.getItem('webos_limusic_liked_v2') || '[]'),
+            listening_history: JSON.parse(localStorage.getItem('webos_limusic_recent_v2') || '[]'),
+            music_settings: JSON.parse(localStorage.getItem('webos_limusic_settings_v1') || '{}'),
+            desktop: JSON.parse(localStorage.getItem('webos_desktop_items_v5') || '[]'),
+            notes: JSON.parse(localStorage.getItem('webos_notes_list_v2') || '[]'),
+            code: localStorage.getItem('webos_code_editor_v1') || '',
+            invisiproxy_url: localStorage.getItem('aero_invisiproxy_url') || '',
+            lgl: JSON.parse(localStorage.getItem('webos_lgl_state_v2') || '{}')
+          };
+          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `aero-backup-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Backup downloaded');
+        });
+
+        const importFileInp = bodyEl.querySelector('#acc-import-file');
+        bodyEl.querySelector('#acc-import-btn')?.addEventListener('click', () => {
+          importFileInp?.click();
+        });
+        importFileInp?.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            try {
+              const d = JSON.parse(evt.target.result);
+              if (Array.isArray(d.playlists)) localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(d.playlists));
+              if (Array.isArray(d.liked_songs)) localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(d.liked_songs));
+              if (Array.isArray(d.listening_history)) localStorage.setItem('webos_limusic_recent_v2', JSON.stringify(d.listening_history));
+              if (d.music_settings) localStorage.setItem('webos_limusic_settings_v1', JSON.stringify(d.music_settings));
+              if (Array.isArray(d.desktop)) {
+                localStorage.setItem('webos_desktop_items_v5', JSON.stringify(d.desktop));
+                window.dispatchEvent(new CustomEvent('desktop:reload'));
+              }
+              if (Array.isArray(d.notes)) {
+                localStorage.setItem('webos_notes_list_v2', JSON.stringify(d.notes));
+                window.dispatchEvent(new CustomEvent('notes:updated'));
+              }
+              if (d.code) localStorage.setItem('webos_code_editor_v1', d.code);
+              if (d.invisiproxy_url) localStorage.setItem('aero_invisiproxy_url', d.invisiproxy_url);
+              if (d.lgl) localStorage.setItem('webos_lgl_state_v2', JSON.stringify(d.lgl));
+
+              window.GoldenGateMusic?.reloadLibrary?.();
+              window.dispatchEvent(new CustomEvent('music:library-changed'));
+              if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Backup restored successfully');
+              updateUI();
+            } catch (err) {
+              if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Invalid backup file');
+            }
+          };
+          reader.readAsText(file);
+        });
+
         bodyEl.querySelector('#acc-signout-btn').onclick = async () => {
           await window.AeroAuth.signOut();
           activeMode = 'signin';
@@ -2528,6 +2647,14 @@ ${profile.bio}
             </div>
           </form>
           <div id="acc-msg" style="font-size:12px;text-align:center;min-height:16px;"></div>
+          <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);text-align:center;">Or save and restore locally:</div>
+            <div style="display:flex;gap:8px;">
+              <button id="acc-guest-export-btn" class="btn-flat" style="flex:1;padding:7px;background:rgba(255,255,255,0.06);color:#e2e8f0;font-size:11px;border-radius:8px;">Export Backup</button>
+              <button id="acc-guest-import-btn" class="btn-flat" style="flex:1;padding:7px;background:rgba(255,255,255,0.06);color:#e2e8f0;font-size:11px;border-radius:8px;">Import Backup</button>
+              <input type="file" id="acc-guest-import-file" accept=".json" style="display:none;" />
+            </div>
+          </div>
         </div>
       `;
 
@@ -2576,6 +2703,69 @@ ${profile.bio}
           }, 300);
         };
       }
+
+      const guestExportBtn = bodyEl.querySelector('#acc-guest-export-btn');
+      const guestImportBtn = bodyEl.querySelector('#acc-guest-import-btn');
+      const guestImportFile = bodyEl.querySelector('#acc-guest-import-file');
+
+      guestExportBtn?.addEventListener('click', () => {
+        const backup = {
+          version: 'aero-backup-v1',
+          date: new Date().toISOString(),
+          playlists: JSON.parse(localStorage.getItem('webos_limusic_user_playlists_v2') || '[]'),
+          liked_songs: JSON.parse(localStorage.getItem('webos_limusic_liked_v2') || '[]'),
+          listening_history: JSON.parse(localStorage.getItem('webos_limusic_recent_v2') || '[]'),
+          music_settings: JSON.parse(localStorage.getItem('webos_limusic_settings_v1') || '{}'),
+          desktop: JSON.parse(localStorage.getItem('webos_desktop_items_v5') || '[]'),
+          notes: JSON.parse(localStorage.getItem('webos_notes_list_v2') || '[]'),
+          code: localStorage.getItem('webos_code_editor_v1') || '',
+          invisiproxy_url: localStorage.getItem('aero_invisiproxy_url') || '',
+          lgl: JSON.parse(localStorage.getItem('webos_lgl_state_v2') || '{}')
+        };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `aero-backup-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Backup downloaded');
+      });
+
+      guestImportBtn?.addEventListener('click', () => guestImportFile?.click());
+      guestImportFile?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const d = JSON.parse(evt.target.result);
+            if (Array.isArray(d.playlists)) localStorage.setItem('webos_limusic_user_playlists_v2', JSON.stringify(d.playlists));
+            if (Array.isArray(d.liked_songs)) localStorage.setItem('webos_limusic_liked_v2', JSON.stringify(d.liked_songs));
+            if (Array.isArray(d.listening_history)) localStorage.setItem('webos_limusic_recent_v2', JSON.stringify(d.listening_history));
+            if (d.music_settings) localStorage.setItem('webos_limusic_settings_v1', JSON.stringify(d.music_settings));
+            if (Array.isArray(d.desktop)) {
+              localStorage.setItem('webos_desktop_items_v5', JSON.stringify(d.desktop));
+              window.dispatchEvent(new CustomEvent('desktop:reload'));
+            }
+            if (Array.isArray(d.notes)) {
+              localStorage.setItem('webos_notes_list_v2', JSON.stringify(d.notes));
+              window.dispatchEvent(new CustomEvent('notes:updated'));
+            }
+            if (d.code) localStorage.setItem('webos_code_editor_v1', d.code);
+            if (d.invisiproxy_url) localStorage.setItem('aero_invisiproxy_url', d.invisiproxy_url);
+            if (d.lgl) localStorage.setItem('webos_lgl_state_v2', JSON.stringify(d.lgl));
+
+            window.GoldenGateMusic?.reloadLibrary?.();
+            window.dispatchEvent(new CustomEvent('music:library-changed'));
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Backup restored successfully');
+            updateUI();
+          } catch (err) {
+            if (window.GoldenGateOS?.showToast) window.GoldenGateOS.showToast('Invalid backup file');
+          }
+        };
+        reader.readAsText(file);
+      });
 
       submitBtn.onclick = async () => {
         const email = emailInp.value.trim();

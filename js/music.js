@@ -141,6 +141,8 @@ window.GoldenGateMusic = (function () {
       settings = { ...DEFAULT_SETTINGS };
     }
   }
+  loadLibrary();
+  loadLibrary();
 
   function saveLibrary() {
     try {
@@ -675,6 +677,136 @@ window.GoldenGateMusic = (function () {
       targetPl.tracks.push(track);
       saveLibrary();
       notifyListeners();
+    }
+  }
+
+  function removeTrackFromPlaylist(trackId, plId) {
+    if (!trackId) return;
+    if (plId === 'liked') {
+      likedTracks = likedTracks.filter((t) => t.id !== trackId);
+      saveLibrary();
+      notifyListeners();
+      return;
+    }
+    const targetPl = playlists.find((p) => p.id === plId);
+    if (targetPl) {
+      targetPl.tracks = (targetPl.tracks || []).filter((t) => t.id !== trackId);
+      saveLibrary();
+      notifyListeners();
+    }
+  }
+
+  function exportLibraryJson() {
+    return JSON.stringify({
+      version: 'aero-music-v1',
+      date: new Date().toISOString(),
+      playlists: playlists,
+      liked_songs: likedTracks,
+      listening_history: recentTracks,
+      settings: settings
+    }, null, 2);
+  }
+
+  function importLibraryJson(jsonString) {
+    try {
+      const data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+      if (Array.isArray(data.playlists)) {
+        const map = new Map();
+        playlists.forEach((p) => { if (p && p.id) map.set(p.id, p); });
+        data.playlists.forEach((p) => {
+          if (p && p.id) {
+            if (map.has(p.id)) {
+              const existing = map.get(p.id);
+              const tMap = new Map();
+              (existing.tracks || []).forEach((t) => tMap.set(t.id, t));
+              (p.tracks || []).forEach((t) => tMap.set(t.id, t));
+              map.set(p.id, { ...existing, ...p, tracks: Array.from(tMap.values()) });
+            } else {
+              map.set(p.id, p);
+            }
+          }
+        });
+        playlists = Array.from(map.values());
+      }
+      if (Array.isArray(data.liked_songs)) {
+        const lMap = new Map();
+        likedTracks.forEach((t) => { if (t && t.id) lMap.set(t.id, t); });
+        data.liked_songs.forEach((t) => { if (t && t.id) lMap.set(t.id, t); });
+        likedTracks = Array.from(lMap.values());
+      }
+      if (data.settings) {
+        settings = { ...settings, ...data.settings };
+      }
+      saveLibrary();
+      notifyListeners();
+      return { success: true };
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  function removeTrackFromPlaylist(trackId, plId) {
+    if (!trackId) return;
+    if (plId === 'liked') {
+      likedTracks = likedTracks.filter((t) => t.id !== trackId);
+      saveLibrary();
+      notifyListeners();
+      return;
+    }
+    const targetPl = playlists.find((p) => p.id === plId);
+    if (targetPl) {
+      targetPl.tracks = (targetPl.tracks || []).filter((t) => t.id !== trackId);
+      saveLibrary();
+      notifyListeners();
+    }
+  }
+
+  function exportLibraryJson() {
+    return JSON.stringify({
+      version: 'aero-music-v1',
+      date: new Date().toISOString(),
+      playlists: playlists,
+      liked_songs: likedTracks,
+      listening_history: recentTracks,
+      settings: settings
+    }, null, 2);
+  }
+
+  function importLibraryJson(jsonString) {
+    try {
+      const data = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+      if (Array.isArray(data.playlists)) {
+        const map = new Map();
+        playlists.forEach((p) => { if (p && p.id) map.set(p.id, p); });
+        data.playlists.forEach((p) => {
+          if (p && p.id) {
+            if (map.has(p.id)) {
+              const existing = map.get(p.id);
+              const tMap = new Map();
+              (existing.tracks || []).forEach((t) => tMap.set(t.id, t));
+              (p.tracks || []).forEach((t) => tMap.set(t.id, t));
+              map.set(p.id, { ...existing, ...p, tracks: Array.from(tMap.values()) });
+            } else {
+              map.set(p.id, p);
+            }
+          }
+        });
+        playlists = Array.from(map.values());
+      }
+      if (Array.isArray(data.liked_songs)) {
+        const lMap = new Map();
+        likedTracks.forEach((t) => { if (t && t.id) lMap.set(t.id, t); });
+        data.liked_songs.forEach((t) => { if (t && t.id) lMap.set(t.id, t); });
+        likedTracks = Array.from(lMap.values());
+      }
+      if (data.settings) {
+        settings = { ...settings, ...data.settings };
+      }
+      saveLibrary();
+      notifyListeners();
+      return { success: true };
+    } catch (err) {
+      return { error: err.message };
     }
   }
 
@@ -1344,6 +1476,12 @@ window.GoldenGateMusic = (function () {
     createPlaylist,
     deletePlaylist,
     addTrackToPlaylist,
+    removeTrackFromPlaylist,
+    exportLibraryJson,
+    importLibraryJson,
+    removeTrackFromPlaylist,
+    exportLibraryJson,
+    importLibraryJson,
     toggleLikeTrack,
     isTrackLiked,
     getCurrentTrack: () => currentTrack,
