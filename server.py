@@ -159,27 +159,33 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         reply_text = ''
         provider_used = 'none'
 
-        # 1. Try Google Gemini API (multiple model fallbacks) if key is available
+        # 1. Try Google Gemini API (gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro)
         if api_key:
-            for model_name in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']:
+            for model_name in ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']:
                 try:
                     url = f'https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(api_key)}'
                     payload = json.dumps({
                         'contents': [
                             {
                                 'role': 'user',
-                                'parts': [{'text': f'{system_instruction}\n\nUser: {prompt}'}],
+                                'parts': [{'text': prompt}],
                             }
                         ],
-                        'generationConfig': {'temperature': 0.35, 'maxOutputTokens': 260},
+                        'systemInstruction': {
+                            'parts': [{'text': system_instruction}]
+                        },
+                        'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 600},
                     }).encode('utf-8')
                     req = urllib.request.Request(
                         url,
                         data=payload,
-                        headers={'Content-Type': 'application/json'},
+                        headers={
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': api_key,
+                        },
                         method='POST',
                     )
-                    with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
                         res_json = json.loads(resp.read().decode('utf-8', errors='replace'))
                         candidate = (
                             res_json.get('candidates', [{}])[0]
@@ -192,7 +198,33 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             provider_used = model_name
                             break
                 except Exception:
-                    continue
+                    # Fallback retry without systemInstruction field for older models
+                    try:
+                        url = f'https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(api_key)}'
+                        payload = json.dumps({
+                            'contents': [
+                                {
+                                    'role': 'user',
+                                    'parts': [{'text': f'{system_instruction}\n\nUser: {prompt}'}],
+                                }
+                            ],
+                            'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 600},
+                        }).encode('utf-8')
+                        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
+                        with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+                            res_json = json.loads(resp.read().decode('utf-8', errors='replace'))
+                            candidate = (
+                                res_json.get('candidates', [{}])[0]
+                                .get('content', {})
+                                .get('parts', [{}])[0]
+                                .get('text', '')
+                            )
+                            if candidate:
+                                reply_text = candidate.strip()
+                                provider_used = model_name
+                                break
+                    except Exception:
+                        continue
 
         # 2. Zero-config AI fallback via Pollinations OpenAI-compatible text endpoint
         if not reply_text:

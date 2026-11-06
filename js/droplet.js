@@ -1122,8 +1122,8 @@ window.GoldenGateDroplet = (function () {
     const screenSummary = `Focused app: ${ctx.focusedApp || 'desktop'}. Active note: ${ctx.activeNote ? `${ctx.activeNote.title} (${ctx.activeNote.content.slice(0, 120)})` : 'none'}. Current song: ${ctx.currentTrack ? `${ctx.currentTrack.title} by ${ctx.currentTrack.artist}` : 'none'}.`;
 
     const sysInstruction = [
-      'You are Droplet, the intelligent assistant inside AeroOS.',
-      'Reply in 1 to 4 concise, helpful sentences. Never use em-dashes or markdown asterisks.',
+      'You are Droplet, the intelligent AI assistant inside AeroOS.',
+      'Reply in 1 to 4 clear, helpful sentences. Never use em-dashes.',
       `User memories: ${memText || 'none'}.`,
       `Onscreen OS context: ${screenSummary}`,
       recentHistory ? `Recent conversation:\n${recentHistory}` : ''
@@ -1133,7 +1133,43 @@ window.GoldenGateDroplet = (function () {
 
     const apiKey = (localStorage.getItem(API_KEY_LS) || '').trim();
 
-    // 1. Call our local server /ai route (supports Gemini 2.5/2.0/1.5 + zero-config Cloud AI + DDG)
+    // 1. Direct client Google Gemini API call if key is saved (works everywhere, including GitHub Pages)
+    if (apiKey) {
+      for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']) {
+        try {
+          const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const payload = {
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: userPrompt }]
+              }
+            ],
+            systemInstruction: {
+              parts: [{ text: sysInstruction }]
+            },
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 600
+            }
+          };
+          const gRes = await fetch(gemUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (gRes.ok) {
+            const gData = await gRes.json();
+            const text = gData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.trim()) {
+              return text.trim().replace(/\u2014/g, ', ');
+            }
+          }
+        } catch (err) {}
+      }
+    }
+
+    // 2. Call local server /ai route (proxies Gemini or Cloud AI)
     try {
       const res = await fetch('/ai', {
         method: 'POST',
@@ -1147,15 +1183,38 @@ window.GoldenGateDroplet = (function () {
       if (res.ok) {
         const data = await res.json();
         if (data.ok && data.reply) {
-          return data.reply.replace(/\u2014/g, ', ').replace(/\*/g, '');
+          return data.reply.replace(/\u2014/g, ', ');
         }
       }
     } catch (e) {}
 
-    // 2. Direct browser fallback to Wikipedia REST summary for factual queries
+    // 3. Zero-config Cloud AI fallback via Pollinations OpenAI endpoint
+    try {
+      const polRes = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          messages: [
+            { role: 'system', content: sysInstruction },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.4
+        })
+      });
+      if (polRes.ok) {
+        const polData = await polRes.json();
+        const content = polData.choices?.[0]?.message?.content;
+        if (content && content.trim()) {
+          return content.trim().replace(/\u2014/g, ', ');
+        }
+      }
+    } catch (e) {}
+
+    // 4. Wikipedia summary fallback for factual queries
     try {
       const topic = userPrompt
-        .replace(/^(what is|who is|who was|tell me about|explain|define)\s+/i, '')
+        .replace(/^(what is|who is|who was|tell me about|explain|define|where is)\s+/i, '')
         .replace(/[?.,!]/g, '')
         .trim();
       if (topic) {
@@ -1171,7 +1230,7 @@ window.GoldenGateDroplet = (function () {
       }
     } catch (e) {}
 
-    return `I heard "${userPrompt}". You can ask me math questions, general facts, or multi-step OS commands like "open Notes, make a list called Groceries, add milk".`;
+    return `I received "${userPrompt}". You can ask me questions, request code, search the web, or run commands to control music and apps.`;
   }
 
   // ==========================================================================
@@ -1307,13 +1366,18 @@ window.GoldenGateDroplet = (function () {
           </div>
 
           <form id="dt-gemini-key-form" style="display:flex;gap:6px;">
-            <input type="password" id="dt-gemini-key-in" class="clean-input droplet-glass-input" value="${savedKey}" placeholder="Optional Gemini API Key (Built-in AI active by default)" style="font-size:11px;padding:6px 10px;" />
-            <button type="submit" class="btn-solid" style="padding:4px 10px;font-size:11px;">Save Key</button>
+            <input type="password" id="dt-gemini-key-in" class="clean-input droplet-glass-input" value="${savedKey}" placeholder="Gemini API Key" style="font-size:11px;padding:6px 10px;flex:1;" />
+            <button type="submit" class="btn-solid" style="padding:4px 10px;font-size:11px;">Save</button>
+            <button type="button" id="dt-gemini-test-btn" class="btn-flat" style="padding:4px 10px;font-size:11px;">Test Key</button>
           </form>
+          <div id="dt-key-test-status" style="font-size:11px;color:#38bdf8;margin-top:-4px;display:none;"></div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:11px;color:rgba(255,255,255,0.78);">Conversation History (${conversationTurns.length}/${MAX_TURNS})</span>
-            <button class="btn-flat" id="dt-clear-turns" style="padding:2px 8px;font-size:10.5px;">Clear</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn-flat" id="dt-export-turns" style="padding:2px 8px;font-size:10.5px;">Export</button>
+              <button class="btn-flat" id="dt-clear-turns" style="padding:2px 8px;font-size:10.5px;">Clear</button>
+            </div>
           </div>
 
           <div style="max-height:145px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
@@ -1366,6 +1430,41 @@ window.GoldenGateDroplet = (function () {
         if (k) localStorage.setItem(API_KEY_LS, k);
         else localStorage.removeItem(API_KEY_LS);
         window.GoldenGateOS.showToast('API Key preference saved');
+      });
+      body.querySelector('#dt-gemini-test-btn')?.addEventListener('click', async () => {
+        const k = body.querySelector('#dt-gemini-key-in')?.value.trim();
+        const statusEl = body.querySelector('#dt-key-test-status');
+        if (!k) {
+          if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = '#f87171'; statusEl.textContent = 'Please enter an API key first'; }
+          return;
+        }
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = '#38bdf8'; statusEl.textContent = 'Testing Gemini API key...'; }
+        try {
+          const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(k)}`;
+          const res = await fetch(testUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }] })
+          });
+          if (res.ok) {
+            localStorage.setItem(API_KEY_LS, k);
+            if (statusEl) { statusEl.style.color = '#4ade80'; statusEl.textContent = 'Gemini API Key Verified Successfully!'; }
+            window.GoldenGateOS.showToast('Gemini Key Verified');
+          } else {
+            const err = await res.json();
+            if (statusEl) { statusEl.style.color = '#f87171'; statusEl.textContent = `Error: ${err.error?.message || res.statusText}`; }
+          }
+        } catch (e) {
+          if (statusEl) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Network error testing Gemini key'; }
+        }
+      });
+      body.querySelector('#dt-export-turns')?.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(conversationTurns, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `droplet-chat-history-${Date.now()}.json`;
+        a.click();
+        window.GoldenGateOS.showToast('Chat history exported');
       });
       body.querySelector('#dt-clear-turns')?.addEventListener('click', () => {
         conversationTurns = [];
@@ -1762,6 +1861,69 @@ window.GoldenGateDroplet = (function () {
       const bubble = document.getElementById('droplet-reply-bubble');
       bubble?.classList.toggle('hidden');
     });
+
+    // Quick Action Suggestion Chips
+    document.querySelectorAll('.droplet-chip').forEach((chip) => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = chip.dataset.chip;
+        if (action === 'summarize') {
+          handlePromptSubmit('summarize active screen context');
+        } else if (action === 'code') {
+          handlePromptSubmit('write a clean javascript function example');
+        } else if (action === 'dj') {
+          handlePromptSubmit('play music based on my taste profile');
+        } else if (action === 'theme') {
+          handlePromptSubmit('switch desktop tint theme');
+        } else if (action === 'note') {
+          handlePromptSubmit('open notes and add a quick thought');
+        }
+      });
+    });
+
+    // Voice Speech-To-Text Microphone
+    const micBtn = document.getElementById('droplet-mic-btn');
+    if (micBtn) {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        micBtn.title = 'Speech Recognition not supported in this browser';
+        micBtn.style.opacity = '0.4';
+      } else {
+        const rec = new SpeechRec();
+        rec.continuous = false;
+        rec.interimResults = true;
+        let isListening = false;
+        rec.onstart = () => {
+          isListening = true;
+          micBtn.classList.add('recording');
+          window.GoldenGateOS?.showToast?.('Listening...');
+        };
+        rec.onresult = (evt) => {
+          const transcript = Array.from(evt.results).map((r) => r[0].transcript).join('');
+          const inEl = document.getElementById('droplet-prompt-input');
+          if (inEl) inEl.value = transcript;
+        };
+        rec.onend = () => {
+          isListening = false;
+          micBtn.classList.remove('recording');
+          const inEl = document.getElementById('droplet-prompt-input');
+          if (inEl && inEl.value.trim()) {
+            const query = inEl.value.trim();
+            inEl.value = '';
+            handlePromptSubmit(query);
+          }
+        };
+        rec.onerror = () => {
+          isListening = false;
+          micBtn.classList.remove('recording');
+        };
+        micBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (isListening) rec.stop();
+          else rec.start();
+        });
+      }
+    }
 
     document.querySelectorAll('.droplet-tab-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {

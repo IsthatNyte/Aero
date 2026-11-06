@@ -3230,3 +3230,173 @@ body.tint-colored .simple-icon-svg {
   pointer-events: none;
 }
 
+
+/* ==========================================================================
+   Aero Browser & Droplet Enhancements
+   ========================================================================== */
+.aero-load-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+  opacity: 0;
+  transition: width 0.35s ease, opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+.aero-load-bar.active {
+  opacity: 1;
+  width: 75%;
+}
+.aero-load-bar.done {
+  opacity: 1;
+  width: 100%;
+  transition: width 0.15s ease, opacity 0.3s ease 0.2s;
+}
+
+.aero-tab {
+  animation: aeroTabEnter 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: transform, opacity;
+}
+@keyframes aeroTabEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.aero-nav-btn:active {
+  transform: scale(0.92);
+}
+#aero-nav-reload.spinning svg {
+  animation: aeroSpin 0.75s linear infinite;
+}
+@keyframes aeroSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.aero-tab-view {
+  animation: aeroFadeIn 0.2s ease-out;
+}
+@keyframes aeroFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.aero-speed-favicon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.aero-tab-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+.desktop-shortcut-favicon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.droplet-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 2px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.droplet-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+.droplet-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.droplet-chip:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.droplet-chip:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.droplet-pill-icon-btn.recording {
+  background: rgba(239, 68, 68, 0.35) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.6) !important;
+  animation: micPulse 1.2s infinite ease-in-out;
+}
+@keyframes micPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.droplet-code-card {
+  margin: 6px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.droplet-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+.droplet-code-copy-btn {
+  background: transparent;
+  border: none;
+  color: #38bdf8;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+.droplet-code-copy-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+}
+.droplet-code-body {
+  padding: 8px 10px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  overflow-x: auto;
+}

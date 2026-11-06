@@ -95,6 +95,15 @@
         <div id="droplet-drawer-body" class="droplet-drawer-body"></div>
       </div>
 
+      <!-- Quick Action Suggestion Chips -->
+      <div id="droplet-chips-bar" class="droplet-chips-bar">
+        <button type="button" class="droplet-chip" data-chip="summarize">💡 Summarize Screen</button>
+        <button type="button" class="droplet-chip" data-chip="code">💻 Generate Code</button>
+        <button type="button" class="droplet-chip" data-chip="dj">🎵 DJ Mode</button>
+        <button type="button" class="droplet-chip" data-chip="theme">🎨 Theme Tint</button>
+        <button type="button" class="droplet-chip" data-chip="note">📝 Take Note</button>
+      </div>
+
       <!-- Horizontal Pill Bar + Right Detached Circle (Matches Reference Image) -->
       <div class="droplet-bar-row" id="droplet-drag-handle">
         <div class="liquidgl-card droplet-main-pill">
@@ -105,6 +114,14 @@
             <input type="text" id="droplet-prompt-input" placeholder="Ask Droplet..." autocomplete="off" />
           </form>
           <div class="droplet-pill-actions">
+            <button type="button" class="droplet-pill-icon-btn" id="droplet-mic-btn" title="Voice Input (Speech to Text)">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </button>
             <button type="button" class="droplet-pill-icon-btn" id="droplet-tts-mute-btn" title="Toggle Voice Output (TTS)">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
             </button>

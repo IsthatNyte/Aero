@@ -964,12 +964,38 @@ window.GoldenGateApps = (function () {
       }
     }
 
+    function getWebsiteFavicon(url, title = '', color = '#38bdf8') {
+      if (!url || url === 'aero://games') {
+        return window.GoldenGateIcons.getIconSVG('games', 20);
+      }
+      if (url === 'aero://home') {
+        return uiIcon('home', 20);
+      }
+      let domain = '';
+      try {
+        domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+      } catch (e) {
+        domain = url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+      }
+      if (!domain) {
+        return `<span style="font-weight:700;font-size:16px;">${(title || 'W').slice(0, 1).toUpperCase()}</span>`;
+      }
+      return `<img class="aero-speed-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128" onerror="this.onerror=null;this.src='https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico';" alt="${title}" loading="lazy" />`;
+    }
+
     function getTabIcon(tab) {
       if (tab.url === 'aero://home') {
         return uiIcon('home', 12);
       }
       if (tab.url === 'aero://games') {
         return window.GoldenGateIcons.getIconSVG('games', 13);
+      }
+      let domain = '';
+      try {
+        domain = new URL(tab.url.startsWith('http') ? tab.url : `https://${tab.url}`).hostname;
+      } catch (e) {}
+      if (domain) {
+        return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32" onerror="this.onerror=null;this.parentElement.innerHTML='${uiIcon('globe', 12)}';" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;" />`;
       }
       return uiIcon('globe', 12);
     }
@@ -1053,7 +1079,7 @@ window.GoldenGateApps = (function () {
           </div>
 
           <!-- Row 2: Navigation & URL Toolbar -->
-          <div class="aero-nav-bar">
+          <div class="aero-nav-bar"><div class="aero-load-bar" id="aero-load-bar"></div>
             <div class="aero-nav-btns">
               <button class="aero-nav-btn" id="aero-nav-back" title="Back">${uiIcon('back', 13)}</button>
               <button class="aero-nav-btn" id="aero-nav-forward" title="Forward">${uiIcon('forward', 13)}</button>
@@ -1066,7 +1092,7 @@ window.GoldenGateApps = (function () {
               <div class="aero-omnibox-lock" id="aero-omnibox-lock">
                 ${uiIcon('lock', 12)}
               </div>
-              <input type="text" class="aero-omnibox-input" id="aero-url-input" placeholder="Search with DuckDuckGo or enter web address..." autocomplete="off" spellcheck="false" />
+              <input type="text" class="aero-omnibox-input" id="aero-url-input" placeholder="Search Aero" autocomplete="off" spellcheck="false" />
               <button type="button" class="aero-omnibox-clear hidden" id="aero-url-clear" title="Clear">${uiIcon('close', 10)}</button>
               <button type="submit" class="aero-omnibox-go" id="aero-url-go" title="Go">${uiIcon('forward', 12)}</button>
             </form>
@@ -1119,7 +1145,7 @@ window.GoldenGateApps = (function () {
               <form class="aero-home-search-form" style="width:100%;display:flex;justify-content:center;">
                 <div class="aero-home-search-box">
                   <span style="color:#94a3b8;display:flex;align-items:center;">${uiIcon('search', 16)}</span>
-                  <input type="text" class="aero-home-search-in" placeholder="Search DuckDuckGo or enter web address..." autocomplete="off" />
+                  <input type="text" class="aero-home-search-in" placeholder="Search Aero" autocomplete="off" />
                   <button type="submit" class="aero-home-search-btn">
                     <span>Search</span>
                     ${uiIcon('forward', 12)}
@@ -1127,13 +1153,13 @@ window.GoldenGateApps = (function () {
                 </div>
               </form>
 
-              <!-- Speed Dial Shortcuts -->
+              <!-- Speed Dial Shortcuts with Real Website Icons -->
               <div class="aero-speed-dial">
                 ${QUICK_SITES.map(
                   (s) => `
                   <a href="#" class="aero-speed-card" data-url="${s.url}" data-title="${s.title}">
-                    <div class="aero-speed-icon" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;">
-                      ${s.title.slice(0, 1).toUpperCase()}
+                    <div class="aero-speed-icon" style="background:${s.color}15;border:1px solid ${s.color}35;">
+                      ${getWebsiteFavicon(s.url, s.title, s.color)}
                     </div>
                     <span class="aero-speed-title">${s.title}</span>
                   </a>
@@ -1333,6 +1359,15 @@ window.GoldenGateApps = (function () {
         tab.history = tab.history.slice(0, tab.historyIdx + 1);
         tab.history.push(nextUrl);
         tab.historyIdx = tab.history.length - 1;
+      }
+
+      const loadBar = bodyEl.querySelector('#aero-load-bar');
+      if (loadBar) {
+        loadBar.className = 'aero-load-bar active';
+        setTimeout(() => {
+          loadBar.className = 'aero-load-bar done';
+          setTimeout(() => { loadBar.className = 'aero-load-bar'; }, 350);
+        }, 500);
       }
 
       syncSidebarAndPanes();

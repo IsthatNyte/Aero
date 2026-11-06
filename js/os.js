@@ -190,7 +190,18 @@ window.GoldenGateOS = (function () {
     }
     if (item.type === 'shortcut') {
       if (item.logoDataUrl) {
-        return `<img class="web-logo-img" src="${item.logoDataUrl}" alt="" style="width:${size}px;height:${size}px;" />`;
+        return `<img class="web-logo-img" src="${item.logoDataUrl}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:contain;" />`;
+      }
+      if (item.url) {
+        let domain = '';
+        try {
+          domain = new URL(item.url.startsWith('http') ? item.url : `https://${item.url}`).hostname;
+        } catch (e) {
+          domain = item.url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        }
+        if (domain) {
+          return `<img class="web-logo-img" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128" onerror="this.onerror=null;this.src='https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico';" alt="${item.title || ''}" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:contain;" />`;
+        }
       }
       return window.GoldenGateIcons.getIconSVG('shortcut', size);
     }
@@ -491,12 +502,20 @@ window.GoldenGateOS = (function () {
     const col = Math.floor(count / 5);
     const row = count % 5;
 
+    let domain = '';
+    try {
+      domain = new URL(u).hostname;
+    } catch (e) {
+      domain = u.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+    }
+    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128` : '';
+
     const newItem = {
       id: 'sc-' + Date.now(),
       type: 'shortcut',
       title: cleanTitle,
       url: u,
-      logoDataUrl: '',
+      logoDataUrl: faviconUrl,
       x: 20 + col * 96,
       y: 20 + row * 104
     };
