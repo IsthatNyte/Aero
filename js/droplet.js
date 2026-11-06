@@ -1862,25 +1862,6 @@ window.GoldenGateDroplet = (function () {
       bubble?.classList.toggle('hidden');
     });
 
-    // Quick Action Suggestion Chips
-    document.querySelectorAll('.droplet-chip').forEach((chip) => {
-      chip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const action = chip.dataset.chip;
-        if (action === 'summarize') {
-          handlePromptSubmit('summarize active screen context');
-        } else if (action === 'code') {
-          handlePromptSubmit('write a clean javascript function example');
-        } else if (action === 'dj') {
-          handlePromptSubmit('play music based on my taste profile');
-        } else if (action === 'theme') {
-          handlePromptSubmit('switch desktop tint theme');
-        } else if (action === 'note') {
-          handlePromptSubmit('open notes and add a quick thought');
-        }
-      });
-    });
-
     // Voice Speech-To-Text Microphone
     const micBtn = document.getElementById('droplet-mic-btn');
     if (micBtn) {
